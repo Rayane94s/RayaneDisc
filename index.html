@@ -161,8 +161,12 @@
         .grid-container {
             display: grid;
             grid-template-columns: 80px 1fr;
-            max-width: 600px;
-            margin: 0 auto;
+            width: 100%;
+            flex-grow: 1;
+            /* Allow grid to fill space */
+            /* max-width: 600px; REMOVED max-width limit */
+            margin: 0;
+            /* Remove auto margin since flex handles it */
             position: relative;
         }
 
@@ -205,6 +209,8 @@
         .task-slot {
             padding: 0 20px;
             border-bottom: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            /* Separation between columns */
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -227,6 +233,11 @@
         .status-failed {
             background: var(--red);
             color: white;
+        }
+
+        .task-slot.today-column {
+            border-left: 2px solid rgba(255, 215, 0, 0.3);
+            border-right: 2px solid rgba(255, 215, 0, 0.3);
         }
 
         .footer {
@@ -260,6 +271,127 @@
         .pop-anim {
             animation: pop 0.2s forwards;
         }
+
+        /* Layout */
+        .main-container {
+            display: flex;
+            max-width: 1200px;
+            /* Increased from 900px */
+            /* width: 100%; ensure it can be wide */
+            margin: 0 auto;
+            gap: 20px;
+            padding: 20px;
+            justify-content: center;
+        }
+
+        /* Heatmap */
+        .heatmap-container {
+            width: max-content;
+            /* Only take needed space */
+            min-width: 160px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 200px;
+        }
+
+        .heatmap-grid {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            /* 16 weeks to cover ~4 months */
+            grid-template-rows: repeat(7, 1fr);
+            /* 7 days */
+            grid-auto-flow: column;
+            /* Fill columns first (weeks) */
+            gap: 2px;
+        }
+
+        .heatmap-cell {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+        }
+
+        .heatmap-cell.today {
+            box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.7);
+            z-index: 5;
+        }
+
+        .heatmap-cell:hover {
+            transform: scale(1.5);
+            z-index: 10;
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+        }
+
+        .heatmap-labels {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            /* Match heatmap grid 16 weeks */
+            font-size: 0.6rem;
+            color: var(--text-dim);
+            margin-bottom: 5px;
+            gap: 2px;
+        }
+
+        .heatmap-days {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 0.6rem;
+            color: var(--text-dim);
+            margin-right: 5px;
+            /* Height = 7 cells * (10px + 2px gap) = ~84px */
+        }
+
+        .heatmap-wrapper {
+            display: flex;
+        }
+
+        /* Multi-day controls */
+        .day-count-controls {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-left: 15px;
+            /* Separate from date nav */
+            background: rgba(255, 255, 255, 0.05);
+            /* Subtle background/pill */
+            padding: 4px 8px;
+            border-radius: 20px;
+        }
+
+        .day-count-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: var(--text);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .day-count-btn:hover {
+            background: var(--blue);
+            color: white;
+        }
+
+        .day-count-label {
+            font-size: 0.85rem;
+            color: var(--text);
+            min-width: 45px;
+            text-align: center;
+        }
+
+        /* Dynamic multi-day grid */
+        .grid-container.multi-day {
+            grid-template-columns: 60px repeat(var(--day-count, 1), 1fr);
+        }
     </style>
 </head>
 
@@ -271,6 +403,11 @@
                 <button class="nav-btn" onclick="changeDate(-1)">←</button>
                 <div class="date-display" id="currentDate">Today</div>
                 <button class="nav-btn" onclick="changeDate(1)">→</button>
+                <div class="day-count-controls">
+                    <button class="day-count-btn" onclick="changeDayCount(-1)">−</button>
+                    <span class="day-count-label" id="dayCountLabel">1 day</span>
+                    <button class="day-count-btn" onclick="changeDayCount(1)">+</button>
+                </div>
             </div>
             <div class="score-badge" id="dailyScore">0%</div>
         </div>
@@ -300,8 +437,26 @@
         </div>
     </div>
 
-    <div class="grid-container" id="grid">
-        <div id="timeIndicator"></div>
+    <div class="main-container">
+        <div class="heatmap-container">
+            <div class="heatmap-labels" id="heatmapMonthLabels"></div>
+            <div class="heatmap-wrapper">
+                <div class="heatmap-days">
+                    <span>Mon</span>
+                    <span></span>
+                    <span></span>
+                    <span>Thu</span>
+                    <span></span>
+                    <span></span>
+                    <span>Sun</span>
+                </div>
+                <div class="heatmap-grid" id="heatmapGrid"></div>
+            </div>
+        </div>
+
+        <div class="grid-container" id="grid">
+            <div id="timeIndicator"></div>
+        </div>
     </div>
 
     <div class="footer">
@@ -321,6 +476,7 @@
         let selectedActivity = "Code";
         let dayData = {};
         let dayStats = { momentum: 1, rings: false, weight: false };
+        let dayCount = parseInt(localStorage.getItem('rayane_day_count')) || 1;
 
         const gridEl = document.getElementById('grid');
         const scoreEl = document.getElementById('dailyScore');
@@ -328,9 +484,24 @@
         const presetContainer = document.getElementById('presetContainer');
 
         function init() {
+            updateDayCountLabel();
             renderPresets();
             updateDisplay();
+            renderHeatmap();
             setInterval(updateTimeIndicator, 60000);
+        }
+
+        function changeDayCount(delta) {
+            dayCount = Math.max(1, Math.min(7, dayCount + delta));
+            localStorage.setItem('rayane_day_count', dayCount);
+            updateDayCountLabel();
+            renderGrid();
+            updateTimeIndicator(); // Restore time indicator after grid re-render
+        }
+
+        function updateDayCountLabel() {
+            const label = document.getElementById('dayCountLabel');
+            if (label) label.innerText = dayCount === 1 ? '1 day' : `${dayCount} days`;
         }
 
         function renderPresets() {
@@ -396,21 +567,41 @@
             if (!indicator) return;
 
             const now = new Date();
-            const isToday = getDateKey(currentViewDate) === getDateKey(now);
+            // Check if "Today" is visible in the current view
+            // currentViewDate is the start. We show dayCount days.
+            const todayKey = getDateKey(now);
+            let todayIndex = -1;
 
-            if (!isToday) {
+            for (let d = 0; d < dayCount; d++) {
+                const targetDate = new Date(currentViewDate);
+                targetDate.setDate(targetDate.getDate() + d);
+                if (getDateKey(targetDate) === todayKey) {
+                    todayIndex = d;
+                    break;
+                }
+            }
+
+            if (todayIndex === -1) {
                 indicator.style.display = 'none';
                 return;
             }
 
             const hoursSinceStart = (now.getHours() + now.getMinutes() / 60 - START_HOUR + 24) % 24;
-            // Use constant TOTAL_HOURS instead of children count, as children count now includes the indicator itself
             const totalHeight = gridEl.scrollHeight;
             const rowHeight = totalHeight / TOTAL_HOURS;
-
             const topOffset = hoursSinceStart * rowHeight;
+
+            // Calculate horizontal position
+            // Grid: 80px time col + (dayCount * 1fr) for days
+            // We need to match the specific 1fr column width
+            // Since we can't easily get 1fr in px, we can use calc() or percentage if the container is fixed.
+            // Better: offsetLeft of a cell in that column?
+            // Let's assume uniform width: (100% - 80px) / dayCount
+
             indicator.style.display = 'block';
             indicator.style.top = `${topOffset}px`;
+            indicator.style.left = `calc(80px + ((100% - 80px) / ${dayCount}) * ${todayIndex})`;
+            indicator.style.width = `calc((100% - 80px) / ${dayCount})`;
         }
 
         function renderProgressGraph(allData, allStats) {
@@ -426,49 +617,58 @@
             // Graph Settings
             const w = rect.width;
             const h = rect.height;
-            const paddingX = 20;
-            const paddingY = 15;
-            const chartW = w - (paddingX * 2);
-            const chartH = h - (paddingY * 2);
+            const paddingX = 15;
+            const paddingY = 10;
+            const chartW = w - paddingX * 2;
+            const chartH = h - paddingY * 2;
 
-            // Time Range: Start from Dec 1, 2025, and go for at least 120 days or until today+buffer
-            const chartStart = new Date(2025, 11, 1);
-            let daysToShow = 120;
-            const diffNow = Math.ceil((new Date() - chartStart) / (1000 * 60 * 60 * 24));
-            if (diffNow > 100) daysToShow = diffNow + 20;
+            // Scan all available data keys and sort them
+            const allKeys = Object.keys(allData)
+                .filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)) // Valid date keys only
+                .sort(); // Chronological order
+
+            if (allKeys.length === 0) {
+                document.getElementById('currentAvg').innerText = "0%";
+                ctx.clearRect(0, 0, w, h);
+                return;
+            }
+
+            // Find the date range
+            const chartStart = new Date(allKeys[0]);
+            const chartEnd = new Date(allKeys[allKeys.length - 1]);
+            chartStart.setHours(0, 0, 0, 0);
+            chartEnd.setHours(0, 0, 0, 0);
+
+            const daysToShow = Math.floor((chartEnd - chartStart) / (1000 * 60 * 60 * 24)) + 1;
 
             const points = [];
             let cumulativeSum = 0;
             let cumulativeCount = 0;
             let latestAvg = 0;
 
+            // Iterate through EVERY day from chartStart to chartEnd
             for (let i = 0; i < daysToShow; i++) {
                 const targetDate = new Date(chartStart);
                 targetDate.setDate(targetDate.getDate() + i);
                 const k = getDateKey(targetDate);
 
-                // Cumulative average logic: only count days from MA_BASE_DATE onwards
-                if (targetDate >= MA_BASE_DATE) {
-                    let dayScore = 0;
-                    if (allData[k]) {
-                        const slots = Object.values(allData[k]);
-                        const done = slots.filter(s => s.status === 'done').length;
-                        dayScore = (done / TOTAL_HOURS);
-                        const st = allStats[k] || {};
-                        if (st.rings) dayScore *= 1.2;
-                        if (st.weight) dayScore *= 1.3;
-                    }
-                    cumulativeSum += dayScore;
-                    cumulativeCount++;
-                    const avg = cumulativeSum / cumulativeCount;
-                    points.push({ x: i, y: avg });
-                    latestAvg = avg;
-
-                    // Stop if we reach "today" + 1 (don't project future zeros)
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    if (targetDate > today) break;
+                // Calculate day's score (0 if no data)
+                let dayScore = 0;
+                if (allData[k]) {
+                    const slots = Object.values(allData[k]);
+                    const done = slots.filter(s => s.status === 'done').length;
+                    dayScore = (done / TOTAL_HOURS);
+                    const st = allStats[k] || {};
+                    if (st.rings) dayScore *= 1.2;
+                    if (st.weight) dayScore *= 1.3;
                 }
+
+                // Add to running total
+                cumulativeSum += dayScore;
+                cumulativeCount++;
+                const avg = cumulativeSum / cumulativeCount;
+                points.push({ x: i, y: avg });
+                latestAvg = avg;
             }
 
             document.getElementById('currentAvg').innerText = Math.round(latestAvg * 100) + "%";
@@ -486,6 +686,9 @@
                 ctx.stroke();
             }
 
+            // Safeguard: Ensure we don't divide by zero when there's only 1 day
+            const xDivisor = Math.max(daysToShow - 1, 1);
+
             // Month Labels
             ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
             ctx.font = '10px Inter';
@@ -496,7 +699,7 @@
                 const d = new Date(chartStart);
                 d.setDate(d.getDate() + i);
                 if (d.getMonth() !== lastLabelMonth) {
-                    const x = paddingX + (i * (chartW / (daysToShow - 1)));
+                    const x = paddingX + (i * (chartW / xDivisor));
                     ctx.fillText(months[d.getMonth()], x, h - 2);
                     lastLabelMonth = d.getMonth();
                 }
@@ -504,16 +707,27 @@
 
             if (points.length === 0) return;
 
-            // Line
+            // Draw vertical separation lines FIRST (so they don't interrupt the main line)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            points.forEach((p) => {
+                const x = paddingX + (p.x * (chartW / xDivisor));
+                ctx.beginPath();
+                ctx.moveTo(x, paddingY);
+                ctx.lineTo(x, h - paddingY);
+                ctx.stroke();
+            });
+
+            // Draw the main progress line
             ctx.beginPath();
-            ctx.strokeStyle = '#007AFF'; // Blue
-            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = '#007AFF';
+            ctx.lineWidth = 3;
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
 
             points.forEach((p, idx) => {
-                const x = paddingX + (p.x * (chartW / (daysToShow - 1)));
-                const y = paddingY + chartH - (Math.min(p.y, 1.2) * chartH);
+                const x = paddingX + (p.x * (chartW / xDivisor));
+                const y = paddingY + chartH - (Math.min(p.y, 1.2) * chartH); // Cap at 120%
                 if (idx === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             });
@@ -523,14 +737,14 @@
             const grad = ctx.createLinearGradient(0, paddingY, 0, h - paddingY);
             grad.addColorStop(0, 'rgba(0, 122, 255, 0.15)');
             grad.addColorStop(1, 'rgba(0, 122, 255, 0)');
-            ctx.lineTo(paddingX + (points[points.length - 1].x * (chartW / (daysToShow - 1))), h - paddingY);
-            ctx.lineTo(paddingX + (points[0].x * (chartW / (daysToShow - 1))), h - paddingY);
+            ctx.lineTo(paddingX + (points[points.length - 1].x * (chartW / xDivisor)), h - paddingY);
+            ctx.lineTo(paddingX + (points[0].x * (chartW / xDivisor)), h - paddingY);
             ctx.fillStyle = grad;
             ctx.fill();
 
             // Latest Point dot
             const lastP = points[points.length - 1];
-            const lastX = paddingX + (lastP.x * (chartW / (daysToShow - 1)));
+            const lastX = paddingX + (lastP.x * (chartW / xDivisor));
             const lastY = paddingY + chartH - (Math.min(lastP.y, 1.2) * chartH);
             ctx.fillStyle = '#007AFF';
             ctx.beginPath();
@@ -576,10 +790,20 @@
         function renderGrid() {
             gridEl.innerHTML = '';
 
+            // Set dynamic columns for multi-day
+            gridEl.style.setProperty('--day-count', dayCount);
+            if (dayCount > 1) {
+                gridEl.classList.add('multi-day');
+            } else {
+                gridEl.classList.remove('multi-day');
+            }
+
             // Re-create time indicator since innerHTML cleared it
             const indicatorVal = document.createElement('div');
             indicatorVal.id = 'timeIndicator';
             gridEl.appendChild(indicatorVal);
+
+            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
 
             for (let i = 0; i < TOTAL_HOURS; i++) {
                 const hour = (START_HOUR + i) % 24;
@@ -591,21 +815,40 @@
                 tDiv.innerText = `${dispH} ${suffix}`;
                 gridEl.appendChild(tDiv);
 
-                const slot = document.createElement('div');
-                slot.className = 'task-slot';
-                const saved = dayData[i];
-                if (saved) {
-                    slot.innerText = saved.activity;
-                    if (saved.status === 'neutral') slot.classList.add('status-neutral');
-                    if (saved.status === 'done') slot.classList.add('status-completed');
-                    if (saved.status === 'fail') slot.classList.add('status-failed');
+                // Render slots for each day
+                for (let d = 0; d < dayCount; d++) {
+                    const targetDate = new Date(currentViewDate);
+                    targetDate.setDate(targetDate.getDate() + d);
+                    const dayKey = getDateKey(targetDate);
+                    const dayDataForSlot = allData[dayKey] || {};
+
+                    const slot = document.createElement('div');
+                    slot.className = 'task-slot';
+
+                    // Highlight Today column
+                    const nowKey = getDateKey(new Date());
+                    if (dayKey === nowKey) {
+                        slot.classList.add('today-column');
+                    }
+
+                    const saved = dayDataForSlot[i];
+                    if (saved) {
+                        slot.innerText = saved.activity;
+                        if (saved.status === 'neutral') slot.classList.add('status-neutral');
+                        if (saved.status === 'done') slot.classList.add('status-completed');
+                        if (saved.status === 'fail') slot.classList.add('status-failed');
+                    }
+                    slot.onclick = () => handleSlotClickMulti(slot, i, dayKey);
+                    gridEl.appendChild(slot);
                 }
-                slot.onclick = () => handleSlotClick(slot, i);
-                gridEl.appendChild(slot);
             }
         }
 
         function handleSlotClick(el, index) {
+            handleSlotClickMulti(el, index, getDateKey(currentViewDate));
+        }
+
+        function handleSlotClickMulti(el, index, dayKey) {
             let status = 'empty';
             if (el.classList.contains('status-neutral')) status = 'neutral';
             else if (el.classList.contains('status-completed')) status = 'done';
@@ -615,26 +858,154 @@
             void el.offsetWidth;
             el.classList.add('pop-anim');
 
+            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
+            if (!allData[dayKey]) allData[dayKey] = {};
+
             if (status === 'empty') {
                 el.innerText = selectedActivity;
                 el.classList.add('status-neutral');
-                saveSlot(index, selectedActivity, 'neutral');
+                allData[dayKey][index] = { activity: selectedActivity, status: 'neutral' };
             } else if (status === 'neutral') {
                 el.classList.add('status-completed');
-                saveSlot(index, el.innerText, 'done');
+                allData[dayKey][index] = { activity: el.innerText, status: 'done' };
             } else if (status === 'done') {
                 el.classList.add('status-failed');
-                saveSlot(index, el.innerText, 'fail');
+                allData[dayKey][index] = { activity: el.innerText, status: 'fail' };
             } else {
                 el.innerText = "";
-                saveSlot(index, null, 'empty');
+                delete allData[dayKey][index];
             }
 
-            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
+            localStorage.setItem('rayane_tracker_v2', JSON.stringify(allData));
+            dayData = allData[getDateKey(currentViewDate)] || {};
+
             const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
             const momentumActive = calculateMomentum(allData, allStats);
             recalculateScore(momentumActive);
             renderProgressGraph(allData, allStats);
+            renderHeatmap();
+        }
+
+        function renderHeatmap() {
+            const heatmapEl = document.getElementById('heatmapGrid');
+            const labelsEl = document.getElementById('heatmapMonthLabels');
+            if (!heatmapEl || !labelsEl) return;
+
+            heatmapEl.innerHTML = '';
+            labelsEl.innerHTML = '';
+
+            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
+            const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // Calculate start date: Go back to the nearest Monday 12 weeks ago
+            const weeksToShow = 16; // Extend to cover ~4 months
+            const daysToShow = weeksToShow * 7;
+            const startDate = new Date(today);
+            // Adjust to start on a Monday (if today is Sunday(0), go back 6 days. Else back day-1)
+            const dayOfWeek = startDate.getDay();
+            const diffToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+            startDate.setDate(startDate.getDate() - diffToMon - (weeksToShow * 7) + 7);
+            // The logic above tries to show exactly N weeks ending near today. 
+            // Let's simplify: Start 11 weeks ago Monday, end this week Sunday.
+
+            // Actually, GitHub graph usually ends today. 
+            // So let's just render 12 columns (weeks). 
+            // Column 1 is 11 weeks ago. Column 12 is this week.
+
+            // Reset start date logic:
+            // Find "This Week's Monday"
+            const currentMon = new Date(today);
+            const d = currentMon.getDay();
+            const diff = d === 0 ? 6 : d - 1;
+            currentMon.setDate(currentMon.getDate() - diff); // This Monday
+
+            // Start date = This Monday (Current week)
+            const startRenderDate = new Date(currentMon);
+
+            let lastMonthLabel = -1;
+
+            // Loop 16 weeks
+            for (let w = 0; w < 16; w++) {
+                // Check for month label on the first week of a month
+                const weekDate = new Date(startRenderDate);
+                weekDate.setDate(weekDate.getDate() + (w * 7));
+
+                const label = document.createElement('span');
+                // Only show label if month changes, OR if it's the first column
+                // AND don't spam labels if weeks are in same month
+                if (weekDate.getMonth() !== lastMonthLabel) {
+                    label.innerText = weekDate.toLocaleDateString('en-US', { month: 'short' });
+                    lastMonthLabel = weekDate.getMonth();
+                } else {
+                    label.innerText = ""; // Spacer
+                }
+                labelsEl.appendChild(label);
+
+                // Loop 7 days (Mon-Sun)
+                for (let d = 0; d < 7; d++) {
+                    const cellDate = new Date(startRenderDate);
+                    cellDate.setDate(cellDate.getDate() + (w * 7) + d);
+                    const k = getDateKey(cellDate);
+
+                    const cell = document.createElement('div');
+                    cell.className = 'heatmap-cell';
+
+                    // Highlight today
+                    const todayKey = getDateKey(today);
+                    if (k === todayKey) {
+                        cell.classList.add('today');
+                    }
+
+                    // Logic: Hide past data. Only show coloring for TODAY onwards.
+                    let score = 0;
+                    // Only fetch score if date is >= today (normalized)
+                    if (cellDate >= today) {
+                        score = getScore(k, allData, allStats);
+                        cell.title = `${cellDate.toLocaleDateString()} - ${Math.round(score * 100)}%`;
+                    } else {
+                        // For past days shown in the grid, show them as dim empty cells
+                        cell.title = `${cellDate.toLocaleDateString()} (Past)`;
+                        cell.style.opacity = '0.2';
+                        cell.style.cursor = 'default';
+                        // Optional: disable click for past days if desired, but keeping enabled for now
+                    }
+
+                    // Color gradient logic (only for >= today with score > 0)
+                    if (score > 0) {
+                        // Using HSL: Green is 120, Red is 0.
+                        // User wants 24 colors. Let's go Red -> Yellow -> Green.
+                        // Hue moves from 0 (Red) to 120 (Green).
+                        const hue = Math.round(score * 120);
+
+                        // Saturation 70%, Lightness 50% for visibility
+                        // Or use opacity on green? User asked for 24 distinct colors. Hue shift is best.
+                        cell.style.background = `hsl(${hue}, 75%, 45%)`;
+                    }
+
+                    cell.onclick = () => {
+                        currentViewDate = new Date(cellDate);
+                        updateDisplay();
+                    };
+
+                    heatmapEl.appendChild(cell);
+                }
+            }
+        }
+
+        function getScore(key, allData, allStats) {
+            if (allData[key]) {
+                const slots = Object.values(allData[key]);
+                const done = slots.filter(s => s.status === 'done').length;
+                let score = done / TOTAL_HOURS;
+                const st = allStats[key] || {};
+                if (st.rings) score *= 1.2;
+                if (st.weight) score *= 1.3;
+                return Math.min(score, 1);
+            }
+            return 0;
         }
 
         function saveSlot(index, activity, status) {
@@ -679,7 +1050,6 @@
         }
 
         function clearDay() {
-
             const key = getDateKey(currentViewDate);
             const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
             const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
@@ -688,11 +1058,13 @@
             delete allStats[key];
             delete allData[key];
 
-            // Save and reload to ensure a perfectly clean slate and avoid any JS state issues
+            // Save updates
             localStorage.setItem('rayane_tracker_v2', JSON.stringify(allData));
             localStorage.setItem('rayane_tracker_stats', JSON.stringify(allStats));
 
-            window.location.reload();
+            // Refresh UI without reloading page (preserves currentViewDate)
+            updateDisplay();
+            renderHeatmap();
         }
 
         init();
