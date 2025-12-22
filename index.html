@@ -516,43 +516,34 @@
 
             .main-container {
                 flex-direction: column;
-                padding: 10px;
-                gap: 15px;
+                padding: 0;
+                gap: 0;
+                max-width: 100%;
             }
 
+            /* HIDE HEATMAP ON MOBILE - Takes up too much space */
             .heatmap-container {
-                position: static;
-                width: 100%;
-                order: 1;
-                overflow-x: auto;
-                padding-bottom: 10px;
-            }
-
-            .heatmap-grid {
-                grid-template-columns: repeat(16, 12px);
-            }
-
-            .heatmap-cell {
-                width: 12px;
-                height: 12px;
+                display: none;
             }
 
             .grid-container {
-                grid-template-columns: 60px 1fr;
+                grid-template-columns: 55px 1fr;
                 order: 0;
+                width: 100%;
+                max-width: 100%;
             }
 
             .grid-container.multi-day {
-                grid-template-columns: 50px repeat(var(--day-count, 1), 1fr);
+                grid-template-columns: 45px repeat(var(--day-count, 1), 1fr);
             }
 
             .time-slot {
-                padding: 15px 8px;
+                padding: 15px 5px;
                 font-size: 0.7rem;
             }
 
             .task-slot {
-                padding: 0 10px;
+                padding: 0 8px;
                 font-size: 0.9rem;
                 min-height: 50px;
             }
