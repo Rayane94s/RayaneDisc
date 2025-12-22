@@ -494,6 +494,8 @@
 
     <div class="footer">
         <button class="reset-btn" onclick="clearDay()">Clear Data for this Day</button>
+        <button class="reset-btn" style="margin-left: 10px; border-color: var(--red); color:var(--red);"
+            onclick="clearAllData()">Reset Everything</button>
     </div>
 
     <script>
@@ -575,6 +577,11 @@
             const m = String(date.getMonth() + 1).padStart(2, '0');
             const d = String(date.getDate()).padStart(2, '0');
             return `${y}-${m}-${d}`;
+        }
+
+        function parseDateKey(key) {
+            const [y, m, d] = key.split('-').map(Number);
+            return new Date(y, m - 1, d);
         }
 
         function updateDisplay() {
@@ -674,7 +681,7 @@
             const chartH = h - paddingY * 2;
 
             // Define Time Window
-            const now = new Date();
+            const now = new Date(currentViewDate); // Use the date being viewed as the anchor
             now.setHours(0, 0, 0, 0);
             let chartStart = new Date(now);
             let chartEnd = new Date(now);
@@ -704,10 +711,21 @@
                 chartStart.setMonth(0, 1);
                 chartEnd.setFullYear(now.getFullYear(), 11, 31);
             } else { // 'All'
-                if (allKeys.length > 0) chartStart = new Date(allKeys[0]);
+                if (allKeys.length > 0) chartStart = parseDateKey(allKeys[0]);
                 else chartStart.setMonth(0, 1);
-                // End of current year for wide context
-                chartEnd.setFullYear(now.getFullYear(), 11, 31);
+
+                // End of current year, OR extend if data goes further
+                const endOfYear = new Date(now.getFullYear(), 11, 31);
+                chartEnd = endOfYear;
+
+                if (allKeys.length > 0) {
+                    const lastDataDate = parseDateKey(allKeys[allKeys.length - 1]);
+                    if (lastDataDate > chartEnd) {
+                        chartEnd = lastDataDate;
+                        // Add a buffer of a few days
+                        chartEnd.setDate(chartEnd.getDate() + 7);
+                    }
+                }
             }
             chartStart.setHours(0, 0, 0, 0);
             chartEnd.setHours(0, 0, 0, 0);
@@ -731,14 +749,13 @@
                 const maxKey = allKeys[allKeys.length - 1];
                 if (maxKey > latestDataKey) latestDataKey = maxKey;
             }
-            const calculationEnd = new Date(latestDataKey);
+            const calculationEnd = parseDateKey(latestDataKey);
             calculationEnd.setHours(0, 0, 0, 0);
 
-            const totalDaysToCalculate = Math.floor((calculationEnd - absoluteStart) / (1000 * 60 * 60 * 24)) + 1;
-
-            for (let i = 0; i < totalDaysToCalculate; i++) {
-                const targetDate = new Date(absoluteStart);
-                targetDate.setDate(targetDate.getDate() + i);
+            let targetDate = new Date(absoluteStart);
+            // Loop until we cover the end date (inclusive)
+            // Using a loop prevents DST math errors (23h days)
+            while (targetDate <= calculationEnd) {
                 const k = getDateKey(targetDate);
                 let dayScore = 0;
                 let hasValidData = false;
@@ -777,6 +794,7 @@
                     const daysOffset = Math.floor((targetDate - chartStart) / (1000 * 60 * 60 * 24));
                     points.push({ x: daysOffset, y: displayAvg, hasData: true });
                 }
+                targetDate.setDate(targetDate.getDate() + 1);
             }
 
             document.getElementById('currentAvg').innerText = Math.round(latestAvg * 100) + "%";
@@ -817,7 +835,7 @@
                 } else {
                     if (d.getMonth() !== lastLabelMonth) {
                         labelText = months[d.getMonth()];
-                        if (graphWindow === '1Y' && d.getMonth() === 0) labelText = d.getFullYear();
+                        if ((graphWindow === '1Y' || graphWindow === 'All') && d.getMonth() === 0) labelText = d.getFullYear();
                         lastLabelMonth = d.getMonth();
                     } else if (daysToShow < 60 && i % 10 === 0) {
                         labelText = d.getDate();
@@ -892,7 +910,7 @@
                 const k = getDateKey(d);
 
                 if (allData[k] || allStats[k]) {
-                    const dailyScore = getScore(k, allData, allStats, d);
+                    const dailyScore = getScore(k, allData, allStats);
                     totalPercent += dailyScore;
                     daysCount++;
                 }
@@ -1195,6 +1213,16 @@
             // Refresh UI without reloading page (preserves currentViewDate)
             updateDisplay();
             renderHeatmap();
+        }
+
+        function clearAllData() {
+            if (confirm("Are you sure you want to delete ALL history? This cannot be undone.")) {
+                localStorage.removeItem('rayane_tracker_v2');
+                localStorage.removeItem('rayane_tracker_stats');
+                localStorage.removeItem('rayane_day_count');
+                localStorage.removeItem('rayane_graph_window');
+                location.reload();
+            }
         }
 
         init();
