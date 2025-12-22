@@ -154,8 +154,32 @@
 
         canvas#progressGraph {
             width: 100%;
-            height: 80px;
+            height: 100px;
+            /* Slightly taller for better detail */
             display: block;
+        }
+
+        .graph-window-selectors {
+            display: flex;
+            gap: 10px;
+            margin-right: 10px;
+        }
+
+        .window-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .window-btn.active {
+            border-color: var(--accent);
+            color: var(--text);
+            background: rgba(0, 122, 255, 0.1);
         }
 
         .grid-container {
@@ -430,7 +454,16 @@
 
         <div class="graph-section">
             <div class="graph-label">
-                <span>Moving Average (Since Dec 21)</span>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <span>Moving Average (Since Dec 21)</span>
+                    <div class="graph-window-selectors" id="graphWindowSelectors">
+                        <button class="window-btn" data-window="7D">7D</button>
+                        <button class="window-btn active" data-window="30D">30D</button>
+                        <button class="window-btn" data-window="90D">90D</button>
+                        <button class="window-btn" data-window="1Y">1Y</button>
+                        <button class="window-btn" data-window="All">All</button>
+                    </div>
+                </div>
                 <span id="currentAvg">0%</span>
             </div>
             <canvas id="progressGraph"></canvas>
@@ -477,6 +510,7 @@
         let dayData = {};
         let dayStats = { momentum: 1, rings: false, weight: false };
         let dayCount = parseInt(localStorage.getItem('rayane_day_count')) || 1;
+        let graphWindow = localStorage.getItem('rayane_graph_window') || '30D';
 
         const gridEl = document.getElementById('grid');
         const scoreEl = document.getElementById('dailyScore');
@@ -486,9 +520,26 @@
         function init() {
             updateDayCountLabel();
             renderPresets();
+            initGraphWindows();
             updateDisplay();
             renderHeatmap();
             setInterval(updateTimeIndicator, 60000);
+        }
+
+        function initGraphWindows() {
+            const selectors = document.querySelectorAll('.window-btn');
+            selectors.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.window === graphWindow);
+                btn.onclick = () => {
+                    graphWindow = btn.dataset.window;
+                    localStorage.setItem('rayane_graph_window', graphWindow);
+                    selectors.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
+                    const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
+                    renderProgressGraph(allData, allStats);
+                };
+            });
         }
 
         function changeDayCount(delta) {
@@ -622,53 +673,110 @@
             const chartW = w - paddingX * 2;
             const chartH = h - paddingY * 2;
 
-            // Scan all available data keys and sort them
+            // Define Time Window
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            let chartStart = new Date(now);
+            let chartEnd = new Date(now);
+
             const allKeys = Object.keys(allData)
-                .filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)) // Valid date keys only
-                .sort(); // Chronological order
+                .filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k))
+                .sort();
 
-            if (allKeys.length === 0) {
-                document.getElementById('currentAvg').innerText = "0%";
-                ctx.clearRect(0, 0, w, h);
-                return;
+            if (graphWindow === '7D') {
+                // This Week (Mon-Sun)
+                const day = now.getDay();
+                const diffToMon = day === 0 ? 6 : day - 1;
+                chartStart.setDate(now.getDate() - diffToMon);
+                chartEnd = new Date(chartStart);
+                chartEnd.setDate(chartStart.getDate() + 6);
+            } else if (graphWindow === '30D') {
+                // This Month (1st-Last)
+                chartStart.setDate(1);
+                chartEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            } else if (graphWindow === '90D') {
+                // This Quarter
+                const q = Math.floor(now.getMonth() / 3);
+                chartStart.setMonth(q * 3, 1);
+                chartEnd = new Date(now.getFullYear(), (q + 1) * 3, 0);
+            } else if (graphWindow === '1Y') {
+                // This Year (Jan-Dec)
+                chartStart.setMonth(0, 1);
+                chartEnd.setFullYear(now.getFullYear(), 11, 31);
+            } else { // 'All'
+                if (allKeys.length > 0) chartStart = new Date(allKeys[0]);
+                else chartStart.setMonth(0, 1);
+                // End of current year for wide context
+                chartEnd.setFullYear(now.getFullYear(), 11, 31);
             }
-
-            // Find the date range
-            const chartStart = new Date(allKeys[0]);
-            const chartEnd = new Date(allKeys[allKeys.length - 1]);
             chartStart.setHours(0, 0, 0, 0);
             chartEnd.setHours(0, 0, 0, 0);
 
             const daysToShow = Math.floor((chartEnd - chartStart) / (1000 * 60 * 60 * 24)) + 1;
 
+            // Moving average is STILL cumulative from the very beginning of data (Dec 21)
+            // But we only PLOT points within the window.
             const points = [];
             let cumulativeSum = 0;
             let cumulativeCount = 0;
             let latestAvg = 0;
 
-            // Iterate through EVERY day from chartStart to chartEnd
-            for (let i = 0; i < daysToShow; i++) {
-                const targetDate = new Date(chartStart);
+            // We need to calculate cumulative avg from the EARLIEST data point (Dec 21) up to the LATEST data point
+            const absoluteStart = new Date(MA_BASE_DATE);
+            absoluteStart.setHours(0, 0, 0, 0);
+
+            // Find the latest date key that has data
+            let latestDataKey = getDateKey(now);
+            if (allKeys.length > 0) {
+                const maxKey = allKeys[allKeys.length - 1];
+                if (maxKey > latestDataKey) latestDataKey = maxKey;
+            }
+            const calculationEnd = new Date(latestDataKey);
+            calculationEnd.setHours(0, 0, 0, 0);
+
+            const totalDaysToCalculate = Math.floor((calculationEnd - absoluteStart) / (1000 * 60 * 60 * 24)) + 1;
+
+            for (let i = 0; i < totalDaysToCalculate; i++) {
+                const targetDate = new Date(absoluteStart);
                 targetDate.setDate(targetDate.getDate() + i);
                 const k = getDateKey(targetDate);
-
-                // Calculate day's score (0 if no data)
                 let dayScore = 0;
-                if (allData[k]) {
-                    const slots = Object.values(allData[k]);
-                    const done = slots.filter(s => s.status === 'done').length;
-                    dayScore = (done / TOTAL_HOURS);
+                let hasValidData = false;
+                if (allData[k] || allStats[k]) {
                     const st = allStats[k] || {};
-                    if (st.rings) dayScore *= 1.2;
-                    if (st.weight) dayScore *= 1.3;
+                    const slots = allData[k] ? Object.values(allData[k]) : [];
+                    const doneCount = slots.filter(s => s.status === 'done').length;
+                    const failCount = slots.filter(s => s.status === 'fail').length;
+
+                    // Additive Boosts
+                    let boost = 0;
+                    if (st.rings) boost += 0.1;
+                    if (st.weight) boost += 0.1;
+
+                    // Momentum check: uses productivity + health of PREVIOUS 7 days
+                    if (calculateMomentum(allData, allStats, targetDate)) boost += 0.2;
+
+                    // A day is included if there's any active work/failure OR a health/momentum boost
+                    if (doneCount > 0 || failCount > 0 || boost > 0) {
+                        hasValidData = true;
+                        dayScore = (doneCount / TOTAL_HOURS) + boost;
+                    }
                 }
 
-                // Add to running total
-                cumulativeSum += dayScore;
-                cumulativeCount++;
-                const avg = cumulativeSum / cumulativeCount;
-                points.push({ x: i, y: avg });
-                latestAvg = avg;
+                if (hasValidData) {
+                    cumulativeSum += dayScore;
+                    cumulativeCount++;
+                }
+
+                const rawAvg = cumulativeCount > 0 ? cumulativeSum / cumulativeCount : 0;
+                const displayAvg = Math.min(rawAvg, 1.0);
+                latestAvg = displayAvg;
+
+                // Plotting: Clamp to 100% for the graph line height, but use uncapped latestAvg for the label
+                if (targetDate >= chartStart && targetDate <= chartEnd && hasValidData) {
+                    const daysOffset = Math.floor((targetDate - chartStart) / (1000 * 60 * 60 * 24));
+                    points.push({ x: daysOffset, y: displayAvg, hasData: true });
+                }
             }
 
             document.getElementById('currentAvg').innerText = Math.round(latestAvg * 100) + "%";
@@ -686,48 +794,63 @@
                 ctx.stroke();
             }
 
-            // Safeguard: Ensure we don't divide by zero when there's only 1 day
             const xDivisor = Math.max(daysToShow - 1, 1);
 
-            // Month Labels
+            // Labels
             ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
             ctx.font = '10px Inter';
             ctx.textAlign = 'center';
             const months = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
             let lastLabelMonth = -1;
+
             for (let i = 0; i < daysToShow; i++) {
                 const d = new Date(chartStart);
                 d.setDate(d.getDate() + i);
-                if (d.getMonth() !== lastLabelMonth) {
-                    const x = paddingX + (i * (chartW / xDivisor));
-                    ctx.fillText(months[d.getMonth()], x, h - 2);
-                    lastLabelMonth = d.getMonth();
+                const x = paddingX + (i * (chartW / xDivisor));
+                let labelText = "";
+
+                if (graphWindow === '7D') {
+                    const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+                    labelText = days[i];
+                } else if (graphWindow === '30D') {
+                    if (i % 5 === 0 || i === daysToShow - 1) labelText = d.getDate();
+                } else {
+                    if (d.getMonth() !== lastLabelMonth) {
+                        labelText = months[d.getMonth()];
+                        if (graphWindow === '1Y' && d.getMonth() === 0) labelText = d.getFullYear();
+                        lastLabelMonth = d.getMonth();
+                    } else if (daysToShow < 60 && i % 10 === 0) {
+                        labelText = d.getDate();
+                    }
                 }
+
+                if (labelText !== "") ctx.fillText(labelText, x, h - 2);
             }
 
             if (points.length === 0) return;
 
-            // Draw vertical separation lines FIRST (so they don't interrupt the main line)
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            // Draw vertical grid lines (very subtle)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
             ctx.lineWidth = 1;
-            points.forEach((p) => {
-                const x = paddingX + (p.x * (chartW / xDivisor));
+            const gridSkip = Math.ceil(daysToShow / 15);
+            for (let i = 0; i < daysToShow; i += gridSkip) {
+                const x = paddingX + (i * (chartW / xDivisor));
                 ctx.beginPath();
                 ctx.moveTo(x, paddingY);
                 ctx.lineTo(x, h - paddingY);
                 ctx.stroke();
-            });
+            }
 
             // Draw the main progress line
             ctx.beginPath();
             ctx.strokeStyle = '#007AFF';
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 2.5;
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
 
             points.forEach((p, idx) => {
                 const x = paddingX + (p.x * (chartW / xDivisor));
-                const y = paddingY + chartH - (Math.min(p.y, 1.2) * chartH); // Cap at 120%
+                const y = paddingY + chartH - (Math.min(p.y, 1.2) * chartH);
                 if (idx === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             });
@@ -743,36 +866,33 @@
             ctx.fill();
 
             // Latest Point dot
-            const lastP = points[points.length - 1];
-            const lastX = paddingX + (lastP.x * (chartW / xDivisor));
-            const lastY = paddingY + chartH - (Math.min(lastP.y, 1.2) * chartH);
-            ctx.fillStyle = '#007AFF';
-            ctx.beginPath();
-            ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            // We want to highlight the LATEST point AVAILABLE in data, not necessarily Today
+            const dataPoints = points.filter(p => p.hasData);
+            if (dataPoints.length > 0) {
+                const lastDataP = dataPoints[dataPoints.length - 1];
+                const lastX = paddingX + (lastDataP.x * (chartW / xDivisor));
+                const lastY = paddingY + chartH - (Math.min(lastDataP.y, 1.2) * chartH);
+                ctx.fillStyle = '#007AFF';
+                ctx.beginPath();
+                ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
         }
 
-        function calculateMomentum(allData, allStats) {
+        function calculateMomentum(allData, allStats, referenceDate = currentViewDate) {
             let totalPercent = 0;
             let daysCount = 0;
 
             for (let i = 1; i <= 7; i++) {
-                const d = new Date(currentViewDate);
+                const d = new Date(referenceDate);
                 d.setDate(d.getDate() - i);
                 const k = getDateKey(d);
 
-                if (allData[k]) {
-                    const slots = Object.values(allData[k]);
-                    const done = slots.filter(s => s.status === 'done').length;
-                    let dailyScore = (done / TOTAL_HOURS);
-
-                    const stats = allStats[k] || {};
-                    if (stats.rings) dailyScore *= 1.2;
-                    if (stats.weight) dailyScore *= 1.3;
-
+                if (allData[k] || allStats[k]) {
+                    const dailyScore = getScore(k, allData, allStats, d);
                     totalPercent += dailyScore;
                     daysCount++;
                 }
@@ -995,17 +1115,26 @@
             }
         }
 
-        function getScore(key, allData, allStats) {
-            if (allData[key]) {
-                const slots = Object.values(allData[key]);
-                const done = slots.filter(s => s.status === 'done').length;
-                let score = done / TOTAL_HOURS;
-                const st = allStats[key] || {};
-                if (st.rings) score *= 1.2;
-                if (st.weight) score *= 1.3;
-                return Math.min(score, 1);
+        function getScore(key, allData, allStats, referenceDate) {
+            const data = allData[key];
+            const stats = allStats[key] || {};
+
+            let doneCount = 0;
+            if (data) {
+                doneCount = Object.values(data).filter(s => s.status === 'done').length;
             }
-            return 0;
+
+            let boost = 0;
+            if (stats.rings) boost += 0.1;
+            if (stats.weight) boost += 0.1;
+
+            // Only add momentum boost if referenceDate is provided (which enables momentum recursion)
+            // This is safe because calculateMomentum always looks BACKWARDS.
+            if (referenceDate && calculateMomentum(allData, allStats, referenceDate)) {
+                boost += 0.2;
+            }
+
+            return (doneCount / TOTAL_HOURS) + boost;
         }
 
         function saveSlot(index, activity, status) {
@@ -1035,9 +1164,10 @@
             const done = slots.filter(s => s.status === 'done').length;
             let score = (done / TOTAL_HOURS);
 
-            if (momentumActive) score *= 1.5;
-            if (dayStats.rings) score *= 1.2;
-            if (dayStats.weight) score *= 1.3;
+            // Additive Boosts
+            if (momentumActive) score += 0.2;
+            if (dayStats.rings) score += 0.1;
+            if (dayStats.weight) score += 0.1;
 
             const percent = Math.round(score * 100);
             scoreEl.innerText = percent + "%";
