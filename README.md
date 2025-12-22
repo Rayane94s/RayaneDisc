@@ -57,7 +57,6 @@ To access the tracker from multiple devices (like a phone), it can be hosted on 
     - *Note: Since data is stored in LocalStorage, data will not sync between devices automatically unless you use a syncing solution or stick to one device.*
 
 ## Future Plans
-- [ ] Add data export/import functionality.
 - [ ] Customizable activity lists via UI.
 - [ ] Dark/Light mode toggle (currently Dark mode only).
 
