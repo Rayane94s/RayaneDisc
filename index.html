@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Rayane Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #050505;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1);
+            --text: #ffffff;
+            --text-dim: #888888;
+            --green: #00FF88;
+            --red: #FF4B4B;
+            --neutral: #2C2C2E;
+            --accent: #007AFF;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, sans-serif;
+            margin: 0;
+            padding: 0;
+            padding-bottom: 80px;
+            min-height: 100vh;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .header {
+            position: sticky;
+            top: 0;
+            background: rgba(5, 5, 5, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            border-bottom: 1px solid var(--border);
+            z-index: 100;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .nav-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .date-display {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .score-badge {
+            font-size: 1.8rem;
+            font-weight: 800;
+        }
+
+        .multipliers {
+            display: flex;
+            gap: 10px;
+            padding: 5px 0;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .multipliers::-webkit-scrollbar {
+            display: none;
+        }
+
+        .mult-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--card-bg);
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            font-size: 0.85rem;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .mult-item.active {
+            border-color: var(--accent);
+            background: rgba(0, 122, 255, 0.1);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .controls::-webkit-scrollbar {
+            display: none;
+        }
+
+        .preset-btn {
+            background: var(--card-bg);
+            color: var(--text-dim);
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .preset-btn.active {
+            background: var(--text);
+            color: var(--bg);
+        }
+
+        /* Graph */
+        .graph-section {
+            padding: 10px 0 0 0;
+            border-top: 1px solid var(--border);
+            margin-top: 5px;
+        }
+
+        .graph-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        canvas#progressGraph {
+            width: 100%;
+            height: 80px;
+            display: block;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: 80px 1fr;
+            max-width: 600px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        #timeIndicator {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #FFD700, transparent);
+            box-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+            z-index: 50;
+            pointer-events: none;
+            display: none;
+        }
+
+        #timeIndicator::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: -3px;
+            width: 8px;
+            height: 8px;
+            background: #FFD700;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #FFD700;
+        }
+
+        .time-slot {
+            padding: 20px 15px;
+            text-align: right;
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            border-bottom: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .task-slot {
+            padding: 0 20px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            font-size: 1rem;
+            font-weight: 600;
+            min-height: 60px;
+            transition: background 0.2s;
+        }
+
+        .status-neutral {
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text);
+        }
+
+        .status-completed {
+            background: var(--green);
+            color: #004422;
+        }
+
+        .status-failed {
+            background: var(--red);
+            color: white;
+        }
+
+        .footer {
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .reset-btn {
+            background: transparent;
+            color: var(--red);
+            border: 1px solid rgba(255, 75, 75, 0.2);
+            padding: 12px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        @keyframes pop {
+            0% {
+                transform: scale(0.95);
+            }
+
+            50% {
+                transform: scale(1.02);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .pop-anim {
+            animation: pop 0.2s forwards;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <div class="header-top">
+            <div class="nav-controls">
+                <button class="nav-btn" onclick="changeDate(-1)">←</button>
+                <div class="date-display" id="currentDate">Today</div>
+                <button class="nav-btn" onclick="changeDate(1)">→</button>
+            </div>
+            <div class="score-badge" id="dailyScore">0%</div>
+        </div>
+
+        <div class="multipliers" id="multiplierContainer">
+            <div class="mult-item" id="itemMomentum">
+                <span>Momentum (1.0x)</span>
+            </div>
+            <label class="mult-item" id="labelRings">
+                <input type="checkbox" id="checkRings" onchange="updateStats()">
+                <span>Apple Watch (1.2x)</span>
+            </label>
+            <label class="mult-item" id="labelWeight">
+                <input type="checkbox" id="checkWeight" onchange="updateStats()">
+                <span>Weight Target (1.3x)</span>
+            </label>
+        </div>
+
+        <div class="controls" id="presetContainer"></div>
+
+        <div class="graph-section">
+            <div class="graph-label">
+                <span>Moving Average (Since Dec 21)</span>
+                <span id="currentAvg">0%</span>
+            </div>
+            <canvas id="progressGraph"></canvas>
+        </div>
+    </div>
+
+    <div class="grid-container" id="grid">
+        <div id="timeIndicator"></div>
+    </div>
+
+    <div class="footer">
+        <button class="reset-btn" onclick="clearDay()">Clear Data for this Day</button>
+    </div>
+
+    <script>
+        const ACTIVITIES = ["Sleep", "Code", "Work", "Read", "Workout", "Stretch", "Looksmax", "Pray", "Netflix"];
+        const START_HOUR = 5;
+        const TOTAL_HOURS = 24;
+        const SCHEDULE = { 18: "Sleep", 19: "Sleep", 20: "Sleep", 21: "Sleep", 22: "Sleep", 23: "Sleep" };
+
+        const MA_BASE_DATE = new Date(2025, 11, 21); // Dec 21, 2025
+        let currentViewDate = new Date();
+        currentViewDate.setHours(0, 0, 0, 0);
+
+        let selectedActivity = "Code";
+        let dayData = {};
+        let dayStats = { momentum: 1, rings: false, weight: false };
+
+        const gridEl = document.getElementById('grid');
+        const scoreEl = document.getElementById('dailyScore');
+        const dateEl = document.getElementById('currentDate');
+        const presetContainer = document.getElementById('presetContainer');
+
+        function init() {
+            renderPresets();
+            updateDisplay();
+            setInterval(updateTimeIndicator, 60000);
+        }
+
+        function renderPresets() {
+            presetContainer.innerHTML = '';
+            ACTIVITIES.forEach(act => {
+                const btn = document.createElement('button');
+                btn.className = `preset-btn ${act === selectedActivity ? 'active' : ''}`;
+                btn.innerText = act;
+                btn.onclick = () => {
+                    selectedActivity = act;
+                    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                };
+                presetContainer.appendChild(btn);
+            });
+        }
+
+        function getDateKey(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function updateDisplay() {
+            const key = getDateKey(currentViewDate);
+            dateEl.innerText = (key === getDateKey(new Date())) ? "Today" : currentViewDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
+            const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
+
+            if (!allData[key]) {
+                allData[key] = {};
+                Object.entries(SCHEDULE).forEach(([idx, act]) => {
+                    allData[key][idx] = { activity: act, status: 'neutral' };
+                });
+                localStorage.setItem('rayane_tracker_v2', JSON.stringify(allData));
+            }
+
+            dayData = allData[key];
+            dayStats = allStats[key] || { rings: false, weight: false };
+
+            document.getElementById('checkRings').checked = dayStats.rings;
+            document.getElementById('checkWeight').checked = dayStats.weight;
+
+            // MOMENTUM LOGIC: Average of last 7 days > 50%
+            const momentumActive = calculateMomentum(allData, allStats);
+            const momentumEl = document.getElementById('itemMomentum');
+            if (momentumEl) {
+                momentumEl.classList.toggle('active', momentumActive);
+                momentumEl.querySelector('span').innerText = momentumActive ? "Momentum Active (1.5x) 🔥" : "Momentum (1.0x)";
+            }
+
+            updateMultiplierStyles();
+            renderGrid();
+            recalculateScore(momentumActive);
+            renderProgressGraph(allData, allStats);
+            updateTimeIndicator();
+        }
+
+        function updateTimeIndicator() {
+            const indicator = document.getElementById('timeIndicator');
+            if (!indicator) return;
+
+            const now = new Date();
+            const isToday = getDateKey(currentViewDate) === getDateKey(now);
+
+            if (!isToday) {
+                indicator.style.display = 'none';
+                return;
+            }
+
+            const hoursSinceStart = (now.getHours() + now.getMinutes() / 60 - START_HOUR + 24) % 24;
+            // Use constant TOTAL_HOURS instead of children count, as children count now includes the indicator itself
+            const totalHeight = gridEl.scrollHeight;
+            const rowHeight = totalHeight / TOTAL_HOURS;
+
+            const topOffset = hoursSinceStart * rowHeight;
+            indicator.style.display = 'block';
+            indicator.style.top = `${topOffset}px`;
+        }
+
+        function renderProgressGraph(allData, allStats) {
+            const canvas = document.getElementById('progressGraph');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+
+            // Graph Settings
+            const w = rect.width;
+            const h = rect.height;
+            const paddingX = 20;
+            const paddingY = 15;
+            const chartW = w - (paddingX * 2);
+            const chartH = h - (paddingY * 2);
+
+            // Time Range: Start from Dec 1, 2025, and go for at least 120 days or until today+buffer
+            const chartStart = new Date(2025, 11, 1);
+            let daysToShow = 120;
+            const diffNow = Math.ceil((new Date() - chartStart) / (1000 * 60 * 60 * 24));
+            if (diffNow > 100) daysToShow = diffNow + 20;
+
+            const points = [];
+            let cumulativeSum = 0;
+            let cumulativeCount = 0;
+            let latestAvg = 0;
+
+            for (let i = 0; i < daysToShow; i++) {
+                const targetDate = new Date(chartStart);
+                targetDate.setDate(targetDate.getDate() + i);
+                const k = getDateKey(targetDate);
+
+                // Cumulative average logic: only count days from MA_BASE_DATE onwards
+                if (targetDate >= MA_BASE_DATE) {
+                    let dayScore = 0;
+                    if (allData[k]) {
+                        const slots = Object.values(allData[k]);
+                        const done = slots.filter(s => s.status === 'done').length;
+                        dayScore = (done / TOTAL_HOURS);
+                        const st = allStats[k] || {};
+                        if (st.rings) dayScore *= 1.2;
+                        if (st.weight) dayScore *= 1.3;
+                    }
+                    cumulativeSum += dayScore;
+                    cumulativeCount++;
+                    const avg = cumulativeSum / cumulativeCount;
+                    points.push({ x: i, y: avg });
+                    latestAvg = avg;
+
+                    // Stop if we reach "today" + 1 (don't project future zeros)
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    if (targetDate > today) break;
+                }
+            }
+
+            document.getElementById('currentAvg').innerText = Math.round(latestAvg * 100) + "%";
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Grid lines (y-axis)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = paddingY + (chartH * (i / 4));
+                ctx.beginPath();
+                ctx.moveTo(paddingX, y);
+                ctx.lineTo(w - paddingX, y);
+                ctx.stroke();
+            }
+
+            // Month Labels
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.font = '10px Inter';
+            ctx.textAlign = 'center';
+            const months = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+            let lastLabelMonth = -1;
+            for (let i = 0; i < daysToShow; i++) {
+                const d = new Date(chartStart);
+                d.setDate(d.getDate() + i);
+                if (d.getMonth() !== lastLabelMonth) {
+                    const x = paddingX + (i * (chartW / (daysToShow - 1)));
+                    ctx.fillText(months[d.getMonth()], x, h - 2);
+                    lastLabelMonth = d.getMonth();
+                }
+            }
+
+            if (points.length === 0) return;
+
+            // Line
+            ctx.beginPath();
+            ctx.strokeStyle = '#007AFF'; // Blue
+            ctx.lineWidth = 2.5;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
+            points.forEach((p, idx) => {
+                const x = paddingX + (p.x * (chartW / (daysToShow - 1)));
+                const y = paddingY + chartH - (Math.min(p.y, 1.2) * chartH);
+                if (idx === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+
+            // Gradient Fill
+            const grad = ctx.createLinearGradient(0, paddingY, 0, h - paddingY);
+            grad.addColorStop(0, 'rgba(0, 122, 255, 0.15)');
+            grad.addColorStop(1, 'rgba(0, 122, 255, 0)');
+            ctx.lineTo(paddingX + (points[points.length - 1].x * (chartW / (daysToShow - 1))), h - paddingY);
+            ctx.lineTo(paddingX + (points[0].x * (chartW / (daysToShow - 1))), h - paddingY);
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Latest Point dot
+            const lastP = points[points.length - 1];
+            const lastX = paddingX + (lastP.x * (chartW / (daysToShow - 1)));
+            const lastY = paddingY + chartH - (Math.min(lastP.y, 1.2) * chartH);
+            ctx.fillStyle = '#007AFF';
+            ctx.beginPath();
+            ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function calculateMomentum(allData, allStats) {
+            let totalPercent = 0;
+            let daysCount = 0;
+
+            for (let i = 1; i <= 7; i++) {
+                const d = new Date(currentViewDate);
+                d.setDate(d.getDate() - i);
+                const k = getDateKey(d);
+
+                if (allData[k]) {
+                    const slots = Object.values(allData[k]);
+                    const done = slots.filter(s => s.status === 'done').length;
+                    let dailyScore = (done / TOTAL_HOURS);
+
+                    const stats = allStats[k] || {};
+                    if (stats.rings) dailyScore *= 1.2;
+                    if (stats.weight) dailyScore *= 1.3;
+
+                    totalPercent += dailyScore;
+                    daysCount++;
+                }
+            }
+
+            if (daysCount === 0) return false;
+            return (totalPercent / daysCount) > 0.5;
+        }
+
+        function updateMultiplierStyles() {
+            document.getElementById('labelRings').classList.toggle('active', dayStats.rings);
+            document.getElementById('labelWeight').classList.toggle('active', dayStats.weight);
+        }
+
+        function renderGrid() {
+            gridEl.innerHTML = '';
+
+            // Re-create time indicator since innerHTML cleared it
+            const indicatorVal = document.createElement('div');
+            indicatorVal.id = 'timeIndicator';
+            gridEl.appendChild(indicatorVal);
+
+            for (let i = 0; i < TOTAL_HOURS; i++) {
+                const hour = (START_HOUR + i) % 24;
+                const suffix = hour >= 12 ? 'PM' : 'AM';
+                const dispH = hour % 12 || 12;
+
+                const tDiv = document.createElement('div');
+                tDiv.className = 'time-slot';
+                tDiv.innerText = `${dispH} ${suffix}`;
+                gridEl.appendChild(tDiv);
+
+                const slot = document.createElement('div');
+                slot.className = 'task-slot';
+                const saved = dayData[i];
+                if (saved) {
+                    slot.innerText = saved.activity;
+                    if (saved.status === 'neutral') slot.classList.add('status-neutral');
+                    if (saved.status === 'done') slot.classList.add('status-completed');
+                    if (saved.status === 'fail') slot.classList.add('status-failed');
+                }
+                slot.onclick = () => handleSlotClick(slot, i);
+                gridEl.appendChild(slot);
+            }
+        }
+
+        function handleSlotClick(el, index) {
+            let status = 'empty';
+            if (el.classList.contains('status-neutral')) status = 'neutral';
+            else if (el.classList.contains('status-completed')) status = 'done';
+            else if (el.classList.contains('status-failed')) status = 'fail';
+
+            el.classList.remove('status-neutral', 'status-completed', 'status-failed', 'pop-anim');
+            void el.offsetWidth;
+            el.classList.add('pop-anim');
+
+            if (status === 'empty') {
+                el.innerText = selectedActivity;
+                el.classList.add('status-neutral');
+                saveSlot(index, selectedActivity, 'neutral');
+            } else if (status === 'neutral') {
+                el.classList.add('status-completed');
+                saveSlot(index, el.innerText, 'done');
+            } else if (status === 'done') {
+                el.classList.add('status-failed');
+                saveSlot(index, el.innerText, 'fail');
+            } else {
+                el.innerText = "";
+                saveSlot(index, null, 'empty');
+            }
+
+            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
+            const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
+            const momentumActive = calculateMomentum(allData, allStats);
+            recalculateScore(momentumActive);
+            renderProgressGraph(allData, allStats);
+        }
+
+        function saveSlot(index, activity, status) {
+            const key = getDateKey(currentViewDate);
+            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
+            if (!allData[key]) allData[key] = {};
+            if (status === 'empty') delete allData[key][index];
+            else allData[key][index] = { activity, status };
+            dayData = allData[key];
+            localStorage.setItem('rayane_tracker_v2', JSON.stringify(allData));
+        }
+
+        function updateStats() {
+            dayStats.rings = document.getElementById('checkRings').checked;
+            dayStats.weight = document.getElementById('checkWeight').checked;
+
+            const key = getDateKey(currentViewDate);
+            const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
+            allStats[key] = dayStats;
+            localStorage.setItem('rayane_tracker_stats', JSON.stringify(allStats));
+
+            updateDisplay();
+        }
+
+        function recalculateScore(momentumActive) {
+            const slots = Object.values(dayData);
+            const done = slots.filter(s => s.status === 'done').length;
+            let score = (done / TOTAL_HOURS);
+
+            if (momentumActive) score *= 1.5;
+            if (dayStats.rings) score *= 1.2;
+            if (dayStats.weight) score *= 1.3;
+
+            const percent = Math.round(score * 100);
+            scoreEl.innerText = percent + "%";
+            scoreEl.style.color = (percent >= 80) ? "var(--green)" : (percent >= 50 ? "white" : "var(--red)");
+        }
+
+        function changeDate(days) {
+            currentViewDate.setDate(currentViewDate.getDate() + days);
+            updateDisplay();
+        }
+
+        function clearDay() {
+
+            const key = getDateKey(currentViewDate);
+            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
+            const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
+
+            // Remove day-specific data
+            delete allStats[key];
+            delete allData[key];
+
+            // Save and reload to ensure a perfectly clean slate and avoid any JS state issues
+            localStorage.setItem('rayane_tracker_v2', JSON.stringify(allData));
+            localStorage.setItem('rayane_tracker_stats', JSON.stringify(allStats));
+
+            window.location.reload();
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
