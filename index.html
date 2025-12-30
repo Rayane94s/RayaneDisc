@@ -37,6 +37,13 @@
             padding-bottom: 80px;
             min-height: 100vh;
             -webkit-tap-highlight-color: transparent;
+            margin-left: 0;
+            transition: margin-left 0.3s ease;
+        }
+
+        body.sidebar-visible {
+            margin-left: 300px;
+            padding-left: 20px;
         }
 
         .header {
@@ -63,6 +70,7 @@
             display: flex;
             align-items: center;
             gap: 15px;
+            margin-left: 70px;
         }
 
         .nav-btn {
@@ -561,6 +569,219 @@
             }
         }
 
+        /* Task Management Sidebar */
+        .task-sidebar {
+            position: fixed;
+            left: -300px;
+            top: 0;
+            width: 300px;
+            height: 100vh;
+            background: var(--card-bg);
+            border-right: 1px solid var(--border);
+            padding: 20px;
+            overflow-y: auto;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            transition: left 0.3s ease;
+            visibility: hidden;
+            box-sizing: border-box;
+        }
+
+        .task-sidebar.visible {
+            left: 0;
+            visibility: visible;
+        }
+
+        .task-sidebar-close {
+            position: fixed;
+            left: 300px;
+            top: 20px;
+            width: 30px;
+            height: 40px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 0 10px 10px 0;
+            color: var(--text);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 201;
+            opacity: 0;
+            pointer-events: none;
+            border-left: none;
+        }
+
+        body.sidebar-visible .task-sidebar-close {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .task-sidebar-close:hover {
+            background: rgba(0, 122, 255, 0.1);
+        }
+
+        .task-sidebar-header {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .task-sidebar-toggle {
+            display: block;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 300;
+            pointer-events: auto;
+            transition: opacity 0.3s ease;
+            opacity: 1;
+        }
+
+        body.sidebar-visible .task-sidebar-toggle {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        @media (max-width: 768px) {
+            .task-sidebar.mobile-hidden {
+                display: none;
+            }
+        }
+
+        .task-add-section {
+            display: flex;
+            gap: 8px;
+        }
+
+        .task-add-input {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-family: inherit;
+        }
+
+        .task-add-input::placeholder {
+            color: var(--text-dim);
+        }
+
+        .task-add-btn {
+            background: var(--accent);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .task-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--text);
+            transition: all 0.2s;
+        }
+
+        .task-item:hover {
+            border-color: var(--accent);
+            background: rgba(0, 122, 255, 0.05);
+        }
+
+        .task-item-name {
+            flex: 1;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .task-item-name.protected {
+            cursor: default;
+            opacity: 0.7;
+        }
+
+        .task-item-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .task-item-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        .task-item-btn:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .task-item-btn.delete {
+            border-color: rgba(255, 75, 75, 0.3);
+            color: var(--red);
+        }
+
+        .task-item-btn.delete:hover {
+            border-color: var(--red);
+            background: rgba(255, 75, 75, 0.1);
+        }
+
+        .task-item-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .task-error-msg {
+            background: rgba(255, 75, 75, 0.1);
+            border: 1px solid rgba(255, 75, 75, 0.3);
+            color: var(--red);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            display: none;
+        }
+
+        .task-error-msg.show {
+            display: block;
+        }
+
         /* Extra small phones */
         @media (max-width: 375px) {
             .header {
@@ -596,10 +817,30 @@
                 min-height: 45px;
             }
         }
+
+        /* Mobile Sidebar */
+        @media (max-width: 768px) {
+            body.sidebar-visible {
+                overflow: hidden;
+            }
+        }
     </style>
 </head>
 
 <body>
+
+    <!-- Task Management Sidebar -->
+    <div class="task-sidebar" id="taskSidebar">
+        <button class="task-sidebar-close" onclick="closeMobileSidebar()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 19l-7-7 7-7"></path></svg></button>
+        <div class="task-add-section">
+            <input type="text" class="task-add-input" id="taskAddInput" placeholder="New task...">
+            <button class="task-add-btn" onclick="addTaskFromInput()">Add</button>
+        </div>
+        <div class="task-error-msg" id="taskErrorMsg"></div>
+        <div class="task-list" id="taskList"></div>
+    </div>
+
+    <button class="task-sidebar-toggle" id="taskSidebarToggle" onclick="toggleMobileSidebar()">☰</button>
 
     <div class="header">
         <div class="header-top">
@@ -683,7 +924,7 @@
 
     <script>
         const APP_VERSION = '1.0.3';
-        const ACTIVITIES = ["Sleep", "Code", "Work", "Read", "Workout", "Stretch", "Looksmax", "Pray", "Netflix"];
+        const DEFAULT_ACTIVITIES = ["Sleep", "Code", "Work", "Read", "Workout", "Stretch", "Looksmax", "Pray", "Netflix"];
         const START_HOUR = 5;
         const TOTAL_HOURS = 24;
         const SCHEDULE = { 18: "Sleep", 19: "Sleep", 20: "Sleep", 21: "Sleep", 22: "Sleep", 23: "Sleep" };
@@ -697,18 +938,217 @@
         let dayStats = { momentum: 1, rings: false, weight: false };
         let dayCount = parseInt(localStorage.getItem('rayane_day_count')) || 1;
         let graphWindow = localStorage.getItem('rayane_graph_window') || '30D';
+        let tasks = []; // Dynamic tasks list
 
         const gridEl = document.getElementById('grid');
         const scoreEl = document.getElementById('dailyScore');
         const dateEl = document.getElementById('currentDate');
         const presetContainer = document.getElementById('presetContainer');
 
+        // Task Management Functions
+        function loadTasks() {
+            const stored = localStorage.getItem('rayane_tasks');
+            if (stored) {
+                tasks = JSON.parse(stored);
+            } else {
+                // Initialize with default activities
+                tasks = DEFAULT_ACTIVITIES.map((name, index) => ({
+                    name,
+                    protected: name === 'Sleep'
+                }));
+                saveTasks();
+            }
+        }
+
+        function saveTasks() {
+            localStorage.setItem('rayane_tasks', JSON.stringify(tasks));
+        }
+
+        function getTaskNames() {
+            return tasks.map(t => t.name);
+        }
+
+        function taskExists(name) {
+            return tasks.some(t => t.name.toLowerCase() === name.toLowerCase());
+        }
+
+        function addTaskFromInput() {
+            const input = document.getElementById('taskAddInput');
+            const taskName = input.value.trim();
+            const errorMsg = document.getElementById('taskErrorMsg');
+
+            if (!taskName) {
+                showTaskError('Task name cannot be empty');
+                return;
+            }
+
+            if (taskExists(taskName)) {
+                showTaskError('Task already exists');
+                return;
+            }
+
+            addTask(taskName);
+            input.value = '';
+            hideTaskError();
+        }
+
+        function addTask(name) {
+            tasks.push({ name, protected: false });
+            saveTasks();
+            renderTaskSidebar();
+            renderPresets();
+        }
+
+        function deleteTask(name) {
+            const task = tasks.find(t => t.name === name);
+            if (task && task.protected) {
+                showTaskError('Cannot delete protected task');
+                return;
+            }
+
+            tasks = tasks.filter(t => t.name !== name);
+            saveTasks();
+            renderTaskSidebar();
+            renderPresets();
+            hideTaskError();
+        }
+
+        function renameTask(oldName, newName) {
+            newName = newName.trim();
+            
+            if (!newName) {
+                showTaskError('Task name cannot be empty');
+                return false;
+            }
+
+            const task = tasks.find(t => t.name === oldName);
+            if (task && task.protected && oldName !== newName) {
+                showTaskError('Cannot rename protected task');
+                return false;
+            }
+
+            if (oldName !== newName && taskExists(newName)) {
+                showTaskError('Task already exists');
+                return false;
+            }
+
+            const index = tasks.findIndex(t => t.name === oldName);
+            if (index !== -1) {
+                tasks[index].name = newName;
+                saveTasks();
+                hideTaskError();
+                return true;
+            }
+            return false;
+        }
+
+        function showTaskError(message) {
+            const errorMsg = document.getElementById('taskErrorMsg');
+            errorMsg.innerText = message;
+            errorMsg.classList.add('show');
+            setTimeout(() => hideTaskError(), 3000);
+        }
+
+        function hideTaskError() {
+            const errorMsg = document.getElementById('taskErrorMsg');
+            errorMsg.classList.remove('show');
+        }
+
+        function renderTaskSidebar() {
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = '';
+
+            tasks.forEach(task => {
+                const item = document.createElement('div');
+                item.className = 'task-item';
+
+                const nameEl = document.createElement('span');
+                nameEl.className = 'task-item-name' + (task.protected ? ' protected' : '');
+                nameEl.innerText = task.name;
+                
+                if (!task.protected) {
+                    nameEl.title = 'Double-click to rename';
+                    nameEl.ondblclick = () => renameTaskUI(task.name, nameEl);
+                }
+
+                item.appendChild(nameEl);
+
+                const actionsEl = document.createElement('div');
+                actionsEl.className = 'task-item-actions';
+
+                if (!task.protected) {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'task-item-btn delete';
+                    deleteBtn.innerText = '✕';
+                    deleteBtn.onclick = () => deleteTask(task.name);
+                    actionsEl.appendChild(deleteBtn);
+                } else {
+                    const lockEl = document.createElement('span');
+                    lockEl.innerText = '🔒';
+                    lockEl.style.fontSize = '0.8rem';
+                    lockEl.title = 'Protected task';
+                    actionsEl.appendChild(lockEl);
+                }
+
+                item.appendChild(actionsEl);
+                taskList.appendChild(item);
+            });
+        }
+
+        function renameTaskUI(oldName, nameEl) {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = oldName;
+            input.className = 'task-item-name';
+            input.style.background = 'var(--bg)';
+            input.style.border = '1px solid var(--accent)';
+            input.style.color = 'var(--text)';
+            input.style.padding = '4px 8px';
+            input.style.borderRadius = '4px';
+
+            nameEl.replaceWith(input);
+            input.focus();
+            input.select();
+
+            const finishRename = () => {
+                const newName = input.value.trim();
+                if (renameTask(oldName, newName)) {
+                    renderTaskSidebar();
+                    renderPresets();
+                }
+            };
+
+            input.onblur = finishRename;
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') finishRename();
+                if (e.key === 'Escape') {
+                    renderTaskSidebar();
+                }
+            };
+        }
+
+        function toggleMobileSidebar() {
+            const sidebar = document.getElementById('taskSidebar');
+            const body = document.body;
+            sidebar.classList.toggle('visible');
+            body.classList.toggle('sidebar-visible');
+        }
+
+        function closeMobileSidebar() {
+            const sidebar = document.getElementById('taskSidebar');
+            const body = document.body;
+            sidebar.classList.remove('visible');
+            body.classList.remove('sidebar-visible');
+        }
+
         function init() {
             // Display version
             document.getElementById('appVersion').innerText = APP_VERSION;
             console.log(`🚀 Rayane Tracker v${APP_VERSION} loaded`);
             
+            loadTasks();
             updateDayCountLabel();
+            renderTaskSidebar();
             renderPresets();
             initGraphWindows();
             updateDisplay();
@@ -747,12 +1187,14 @@
 
         function renderPresets() {
             presetContainer.innerHTML = '';
-            ACTIVITIES.forEach(act => {
+            const taskNames = getTaskNames();
+            taskNames.forEach(name => {
                 const btn = document.createElement('button');
-                btn.className = `preset-btn ${act === selectedActivity ? 'active' : ''}`;
-                btn.innerText = act;
+                btn.className = `preset-btn ${name === selectedActivity ? 'active' : ''}`;
+                btn.innerText = name;
                 btn.onclick = () => {
-                    selectedActivity = act;
+                    selectedActivity = name;
+                    closeMobileSidebar();
                     document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                 };
