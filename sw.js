@@ -1,5 +1,5 @@
 // Update this version number whenever you make changes to force cache refresh
-const CACHE_VERSION = '1.0.3';
+const CACHE_VERSION = '1.0.4';
 const CACHE_NAME = `rayane-tracker-v${CACHE_VERSION}`;
 const urlsToCache = [
   './',
@@ -10,6 +10,13 @@ const urlsToCache = [
   './icon-512.png',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap'
 ];
+
+// Listen for skip-waiting message from the page
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
 
 // Install event - cache resources
 self.addEventListener('install', event => {
