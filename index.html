@@ -1216,7 +1216,8 @@
 
         function updateDisplay() {
             const key = getDateKey(currentViewDate);
-            dateEl.innerText = (key === getDateKey(new Date())) ? "Today" : currentViewDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            const formatted = currentViewDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            dateEl.innerText = (key === getDateKey(new Date())) ? `Today — ${formatted}` : formatted;
 
             const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
             const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
