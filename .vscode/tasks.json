@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Rayane Tracker",
+			"type": "shell",
+			"command": "C:/Program Files/Python313/python.exe",
+			"args": [
+				"-m",
+				"http.server",
+				"8000"
+			],
+			"isBackground": true,
+			"group": "build"
+		}
+	]
+}

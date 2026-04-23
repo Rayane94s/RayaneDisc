@@ -251,10 +251,48 @@
             cursor: pointer;
             display: flex;
             align-items: center;
+            justify-content: flex-start;
             font-size: 1rem;
             font-weight: 600;
             min-height: 60px;
             transition: background 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .task-slot-content {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            min-height: 100%;
+            padding-right: 26px;
+            box-sizing: border-box;
+        }
+
+        .task-slot-delete {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 18px;
+            height: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 999px;
+            background: rgba(5, 5, 5, 0.35);
+            color: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            line-height: 1;
+            cursor: pointer;
+            opacity: 0.78;
+            transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+        }
+
+        .task-slot-delete:hover {
+            opacity: 1;
+            background: rgba(255, 75, 75, 0.18);
+            border-color: rgba(255, 75, 75, 0.4);
         }
 
         .status-neutral {
@@ -556,6 +594,18 @@
                 min-height: 50px;
             }
 
+            .task-slot-content {
+                padding-right: 22px;
+            }
+
+            .task-slot-delete {
+                top: 4px;
+                right: 4px;
+                width: 16px;
+                height: 16px;
+                font-size: 0.65rem;
+            }
+
             .footer {
                 padding: 20px 10px;
             }
@@ -816,6 +866,11 @@
                 font-size: 0.85rem;
                 min-height: 45px;
             }
+
+            .task-slot-delete {
+                width: 15px;
+                height: 15px;
+            }
         }
 
         /* Mobile Sidebar */
@@ -915,7 +970,7 @@
 
     <div class="footer">
         <div style="color: var(--text-dim); font-size: 0.75rem; margin-bottom: 15px;">
-            v<span id="appVersion">1.0.3</span>
+            v<span id="appVersion">1.0.5</span>
         </div>
         <button class="reset-btn" onclick="clearDay()">Clear Data for this Day</button>
         <button class="reset-btn" style="margin-left: 10px; border-color: var(--red); color:var(--red);"
@@ -923,11 +978,14 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.0.3';
+        const APP_VERSION = '1.0.5';
         const DEFAULT_ACTIVITIES = ["Sleep", "Code", "Work", "Read", "Workout", "Stretch", "Looksmax", "Pray", "Netflix"];
         const START_HOUR = 5;
         const TOTAL_HOURS = 24;
         const SCHEDULE = { 18: "Sleep", 19: "Sleep", 20: "Sleep", 21: "Sleep", 22: "Sleep", 23: "Sleep" };
+        const MOMENTUM_MULTIPLIER = 1.5;
+        const RINGS_MULTIPLIER = 1.2;
+        const WEIGHT_MULTIPLIER = 1.3;
 
         const MA_BASE_DATE = new Date(2025, 11, 21); // Dec 21, 2025
         let currentViewDate = new Date();
@@ -1395,18 +1453,13 @@
                     const doneCount = slots.filter(s => s.status === 'done').length;
                     const failCount = slots.filter(s => s.status === 'fail').length;
 
-                    // Additive Boosts
-                    let boost = 0;
-                    if (st.rings) boost += 0.1;
-                    if (st.weight) boost += 0.1;
+                    const momentumActive = calculateMomentum(allData, allStats, targetDate);
+                    const hasMultiplierState = st.rings || st.weight || momentumActive;
 
-                    // Momentum check: uses productivity + health of PREVIOUS 7 days
-                    if (calculateMomentum(allData, allStats, targetDate)) boost += 0.2;
-
-                    // A day is included if there's any active work/failure OR a health/momentum boost
-                    if (doneCount > 0 || failCount > 0 || boost > 0) {
+                    // A day is included if there's any active work/failure or multiplier state.
+                    if (doneCount > 0 || failCount > 0 || hasMultiplierState) {
                         hasValidData = true;
-                        dayScore = (doneCount / TOTAL_HOURS) + boost;
+                        dayScore = calculateScoreValue(doneCount, st, momentumActive);
                     }
                 }
 
@@ -1417,7 +1470,7 @@
 
                 const rawAvg = cumulativeCount > 0 ? cumulativeSum / cumulativeCount : 0;
                 const displayAvg = Math.min(rawAvg, 1.0);
-                latestAvg = displayAvg;
+                latestAvg = rawAvg;
 
                 // Plotting: Clamp to 100% for the graph line height, but use uncapped latestAvg for the label
                 if (targetDate >= chartStart && targetDate <= chartEnd && hasValidData) {
@@ -1550,9 +1603,61 @@
             return (totalPercent / daysCount) > 0.5;
         }
 
+        function calculateScoreValue(doneCount, stats = {}, momentumActive = false) {
+            let score = doneCount / TOTAL_HOURS;
+
+            if (momentumActive) score *= MOMENTUM_MULTIPLIER;
+            if (stats.rings) score *= RINGS_MULTIPLIER;
+            if (stats.weight) score *= WEIGHT_MULTIPLIER;
+
+            return score;
+        }
+
         function updateMultiplierStyles() {
             document.getElementById('labelRings').classList.toggle('active', dayStats.rings);
             document.getElementById('labelWeight').classList.toggle('active', dayStats.weight);
+        }
+
+        function setSlotContent(slot, saved) {
+            slot.innerHTML = '';
+
+            if (!saved) {
+                return;
+            }
+
+            const content = document.createElement('div');
+            content.className = 'task-slot-content';
+            content.innerText = saved.activity;
+            slot.appendChild(content);
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'task-slot-delete';
+            deleteBtn.type = 'button';
+            deleteBtn.setAttribute('aria-label', `Delete ${saved.activity}`);
+            deleteBtn.innerText = '✕';
+            slot.appendChild(deleteBtn);
+        }
+
+        function refreshViewsAfterDataChange(allData) {
+            dayData = allData[getDateKey(currentViewDate)] || {};
+
+            const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
+            const momentumActive = calculateMomentum(allData, allStats);
+            recalculateScore(momentumActive);
+            renderProgressGraph(allData, allStats);
+            renderHeatmap();
+        }
+
+        function deleteSlot(dayKey, index) {
+            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
+            if (!allData[dayKey] || !allData[dayKey][index]) {
+                return;
+            }
+
+            delete allData[dayKey][index];
+            localStorage.setItem('rayane_tracker_v2', JSON.stringify(allData));
+            renderGrid();
+            refreshViewsAfterDataChange(allData);
         }
 
         function renderGrid() {
@@ -1601,10 +1706,16 @@
 
                     const saved = dayDataForSlot[i];
                     if (saved) {
-                        slot.innerText = saved.activity;
+                        setSlotContent(slot, saved);
                         if (saved.status === 'neutral') slot.classList.add('status-neutral');
                         if (saved.status === 'done') slot.classList.add('status-completed');
                         if (saved.status === 'fail') slot.classList.add('status-failed');
+
+                        const deleteBtn = slot.querySelector('.task-slot-delete');
+                        deleteBtn.onclick = (event) => {
+                            event.stopPropagation();
+                            deleteSlot(dayKey, i);
+                        };
                     }
                     slot.onclick = () => handleSlotClickMulti(slot, i, dayKey);
                     gridEl.appendChild(slot);
@@ -1630,28 +1741,22 @@
             if (!allData[dayKey]) allData[dayKey] = {};
 
             if (status === 'empty') {
-                el.innerText = selectedActivity;
+                setSlotContent(el, { activity: selectedActivity, status: 'neutral' });
                 el.classList.add('status-neutral');
                 allData[dayKey][index] = { activity: selectedActivity, status: 'neutral' };
             } else if (status === 'neutral') {
                 el.classList.add('status-completed');
-                allData[dayKey][index] = { activity: el.innerText, status: 'done' };
+                allData[dayKey][index] = { activity: allData[dayKey][index].activity, status: 'done' };
             } else if (status === 'done') {
                 el.classList.add('status-failed');
-                allData[dayKey][index] = { activity: el.innerText, status: 'fail' };
+                allData[dayKey][index] = { activity: allData[dayKey][index].activity, status: 'fail' };
             } else {
-                el.innerText = "";
+                setSlotContent(el, null);
                 delete allData[dayKey][index];
             }
 
             localStorage.setItem('rayane_tracker_v2', JSON.stringify(allData));
-            dayData = allData[getDateKey(currentViewDate)] || {};
-
-            const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
-            const momentumActive = calculateMomentum(allData, allStats);
-            recalculateScore(momentumActive);
-            renderProgressGraph(allData, allStats);
-            renderHeatmap();
+            refreshViewsAfterDataChange(allData);
         }
 
         function renderHeatmap() {
@@ -1772,17 +1877,10 @@
                 doneCount = Object.values(data).filter(s => s.status === 'done').length;
             }
 
-            let boost = 0;
-            if (stats.rings) boost += 0.1;
-            if (stats.weight) boost += 0.1;
-
-            // Only add momentum boost if referenceDate is provided (which enables momentum recursion)
-            // This is safe because calculateMomentum always looks BACKWARDS.
-            if (referenceDate && calculateMomentum(allData, allStats, referenceDate)) {
-                boost += 0.2;
-            }
-
-            return (doneCount / TOTAL_HOURS) + boost;
+            // Only apply momentum when referenceDate is provided.
+            // This is safe because calculateMomentum always looks backwards.
+            const momentumActive = referenceDate ? calculateMomentum(allData, allStats, referenceDate) : false;
+            return calculateScoreValue(doneCount, stats, momentumActive);
         }
 
         function saveSlot(index, activity, status) {
@@ -1810,12 +1908,7 @@
         function recalculateScore(momentumActive) {
             const slots = Object.values(dayData);
             const done = slots.filter(s => s.status === 'done').length;
-            let score = (done / TOTAL_HOURS);
-
-            // Additive Boosts
-            if (momentumActive) score += 0.2;
-            if (dayStats.rings) score += 0.1;
-            if (dayStats.weight) score += 0.1;
+            const score = calculateScoreValue(done, dayStats, momentumActive);
 
             const percent = Math.round(score * 100);
             scoreEl.innerText = percent + "%";

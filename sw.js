@@ -1,13 +1,15 @@
 // Update this version number whenever you make changes to force cache refresh
-const CACHE_VERSION = '1.0.3';
+const CACHE_VERSION = '1.0.5';
 const CACHE_NAME = `rayane-tracker-v${CACHE_VERSION}`;
-const urlsToCache = [
+const coreUrlsToCache = [
   './',
   './index.html',
   './manifest.json',
   './apple-touch-icon.png',
   './icon-192.png',
-  './icon-512.png',
+  './icon-512.png'
+];
+const optionalUrlsToCache = [
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap'
 ];
 
@@ -15,11 +17,18 @@ const urlsToCache = [
 self.addEventListener('install', event => {
   console.log('[SW] Installing new version:', CACHE_VERSION);
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('[SW] Caching app shell');
-        return cache.addAll(urlsToCache);
-      })
+    caches.open(CACHE_NAME).then(cache => {
+      console.log('[SW] Caching app shell');
+      // Cache core assets — failure here aborts install intentionally
+      return cache.addAll(coreUrlsToCache).then(() => {
+        // Cache optional external resources; ignore failures so SW install succeeds
+        return Promise.allSettled(
+          optionalUrlsToCache.map(url =>
+            fetch(url, { mode: 'no-cors' }).then(resp => cache.put(url, resp)).catch(() => {})
+          )
+        );
+      });
+    })
   );
   // Force the waiting service worker to become the active service worker
   self.skipWaiting();
