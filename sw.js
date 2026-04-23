@@ -13,6 +13,13 @@ const optionalUrlsToCache = [
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap'
 ];
 
+// Listen for skip-waiting message from the page
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 // Install event - cache resources
 self.addEventListener('install', event => {
   console.log('[SW] Installing new version:', CACHE_VERSION);
