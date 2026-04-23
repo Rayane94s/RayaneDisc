@@ -1,0 +1,5 @@
+node_modules/
+backend/gmail-tokens.json
+backend/txn-cache.json
+.env
+*.env

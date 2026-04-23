@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tweed — Bank Connection Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f7; color: #1d1d1f; }
+
+    header { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white; padding: 20px 32px; display: flex; align-items: center; gap: 12px; }
+    header h1 { font-size: 22px; font-weight: 700; }
+    header span { font-size: 13px; opacity: 0.8; background: rgba(255,255,255,0.2); padding: 3px 10px; border-radius: 20px; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+    .steps { display: flex; gap: 8px; margin-bottom: 32px; }
+    .step { flex: 1; padding: 12px 16px; border-radius: 10px; background: white; border: 2px solid #e5e7eb; font-size: 13px; color: #6b7280; }
+    .step.active { border-color: #4f46e5; color: #4f46e5; font-weight: 600; }
+    .step.done { border-color: #10b981; color: #10b981; background: #f0fdf4; }
+    .step-num { font-weight: 700; margin-right: 6px; }
+
+    .card { background: white; border-radius: 16px; padding: 28px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .card h2 { font-size: 17px; font-weight: 600; margin-bottom: 16px; }
+
+    button { background: #4f46e5; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    button:hover { background: #4338ca; }
+    button:disabled { background: #a5b4fc; cursor: not-allowed; }
+    button.secondary { background: white; color: #4f46e5; border: 2px solid #4f46e5; }
+    button.secondary:hover { background: #eef2ff; }
+    button.danger { background: #ef4444; }
+    button.danger:hover { background: #dc2626; }
+
+    .status-bar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 10px; margin-bottom: 20px; font-size: 14px; }
+    .status-bar.connected { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+    .status-bar.disconnected { background: #fef9c3; border: 1px solid #fde68a; color: #92400e; }
+    .status-bar.error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+
+    .accounts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+    .account-card { background: #f9fafb; border-radius: 12px; padding: 16px; border: 1px solid #e5e7eb; }
+    .account-card .type { font-size: 11px; text-transform: uppercase; font-weight: 600; color: #6b7280; margin-bottom: 4px; }
+    .account-card .name { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+    .account-card .balance { font-size: 22px; font-weight: 700; color: #4f46e5; }
+    .account-card .mask { font-size: 11px; color: #9ca3af; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead th { text-align: left; padding: 10px 12px; font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; border-bottom: 2px solid #f3f4f6; }
+    tbody tr { border-bottom: 1px solid #f3f4f6; }
+    tbody tr:hover { background: #f9fafb; }
+    tbody td { padding: 11px 12px; }
+    .amount.debit { color: #ef4444; font-weight: 600; }
+    .amount.credit { color: #10b981; font-weight: 600; }
+
+    .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 600; background: #ede9fe; color: #6d28d9; }
+
+    .filters { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filters input, .filters select { padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; background: white; }
+    .filters input { flex: 1; min-width: 180px; }
+
+    .empty { text-align: center; padding: 48px; color: #9ca3af; }
+    .spinner-wrap { display: inline-flex; align-items: center; gap: 8px; }
+    .spinner { width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .info-box { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 14px 16px; margin-top: 14px; font-size: 13px; color: #0c4a6e; line-height: 1.6; }
+    .info-box strong { display: block; margin-bottom: 4px; }
+    code { background: #e0f2fe; padding: 1px 5px; border-radius: 4px; font-family: monospace; }
+    .stat-tile { border-radius:12px; padding:18px 20px; text-align:center; }
+    .stat-tile .stat-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px; }
+    .stat-tile .stat-value { font-size:30px; font-weight:700; line-height:1; }
+    .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .toggle-btn { background:transparent; color:#6b7280; border:none; padding:6px 14px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:all 0.15s; }
+    .toggle-btn:hover { background:#e5e7eb; color:#111; }
+    .toggle-btn.active { background:white; color:#4f46e5; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+    .cat-pill { display:inline-block; font-size:12px; padding:3px 10px; border-radius:20px; font-weight:600; white-space:nowrap; }
+    .cat-pill:hover { opacity: 0.8; }
+    .chart-section-label { font-size:11px; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px; }
+    .chart-wrap { overflow-x: auto; overflow-y: hidden; border-radius: 10px; background:#fafafa; border:1px solid #f3f4f6; padding:8px 4px 4px; }
+    .chart-wrap canvas { display: block; }
+    .chart-outer { position: relative; width: 100%; border-radius: 10px; border:1px solid #f3f4f6; overflow: hidden; }
+    .chart-outer .chart-wrap { border: none; border-radius: 0; }
+    .chart-yaxis-overlay { position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; display: block; }
+
+    /* Category Analysis */
+    #categoryCard { display: none; }
+    .cat-layout { display:grid; grid-template-columns:220px 1fr; gap:24px; align-items:start; margin-top:16px; }
+    .cat-donut-wrap { position:relative; width:216px; height:216px; }
+    .cat-donut-wrap canvas { position:absolute; top:0; left:0; }
+    .cat-donut-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
+    .cat-donut-center .cd-label { font-size:11px; font-weight:700; color:#9ca3af; text-transform:uppercase; }
+    .cat-donut-center .cd-value { font-size:22px; font-weight:700; color:#1d1d1f; line-height:1.1; }
+    .cat-donut-center .cd-sub { font-size:11px; color:#9ca3af; }
+    .cat-breakdown { display:flex; flex-direction:column; gap:2px; }
+    .cat-row { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:10px; cursor:pointer; transition:background 0.12s; }
+    .cat-row:hover, .cat-row.selected { background:#f5f3ff; }
+    .cat-row .cr-swatch { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    .cat-row .cr-name { flex:1; font-size:14px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cat-row .cr-bar-track { flex:2; height:6px; background:#f3f4f6; border-radius:4px; overflow:hidden; }
+    .cat-row .cr-bar-fill { height:100%; border-radius:4px; transition:width 0.4s; }
+    .cat-row .cr-amt { font-size:13px; font-weight:700; min-width:70px; text-align:right; }
+    .cat-row .cr-pct { font-size:11px; color:#9ca3af; min-width:38px; text-align:right; }
+  </style>
+</head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<header>
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M2 17l10-10 4 4 6-6"/><path d="M12 21H3a1 1 0 01-1-1v-3"/></svg>
+  <h1>Tweed</h1>
+</header>
+
+<div class="container">
+
+  <div class="card" id="spendingStatsCard" style="display:none">
+    <h2>📊 Spending</h2>
+    <div class="stat-grid">
+      <div class="stat-tile" style="background:#fef2f2;">
+        <div class="stat-label" style="color:#991b1b;">Today</div>
+        <div class="stat-value" style="color:#ef4444;" id="todaySpend">$0.00</div>
+      </div>
+      <div class="stat-tile" id="avgTile" style="background:#f0fdf4;">
+        <div class="stat-label" id="avgLabel" style="color:#166534;">Daily Average</div>
+        <div class="stat-value" id="avgSpend" style="color:#86efac;">$0.00</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h2 style="margin-bottom:0;">📋 Transactions</h2>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button id="gmailRefreshBtn" class="secondary" onclick="fetchGmailTransactions()" style="padding:6px 12px;font-size:15px;line-height:1;">↻</button>
+        <span style="font-size:11px;color:#9ca3af;">powered by Gmail</span>
+      </div>
+    </div>
+    <div class="filters">
+      <input type="text" id="searchInput" placeholder="Search transactions…" oninput="filterGmailTransactions(allTransactions)" disabled />
+      <select id="categoryFilter" onchange="filterGmailTransactions(allTransactions)" disabled>
+        <option value="">All Categories</option>
+      </select>
+    </div>
+    <div id="transactionsContainer"><div class="empty" style="color:#9ca3af;">⏳ Loading transactions…</div></div>
+  </div>
+
+  <div class="card" id="chartsCard" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h2 style="margin:0;">📊 Spending Charts</h2>
+      <div class="toggle-group">
+        <button class="toggle-btn active" onclick="setChartPeriod('day', this)">Day</button>
+        <button class="toggle-btn" onclick="setChartPeriod('week', this)">Week</button>
+        <button class="toggle-btn" onclick="setChartPeriod('month', this)">Month</button>
+      </div>
+    </div>
+    <div style="height:1px;background:#f3f4f6;margin-bottom:16px;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div style="min-width:0">
+        <div class="chart-section-label" id="leftChartLabel">Spend per day</div>
+        <div class="chart-outer">
+          <canvas class="chart-yaxis-overlay" id="barChartY"></canvas>
+          <div class="chart-wrap" id="barWrap">
+            <canvas id="barChart"></canvas>
+          </div>
+        </div>
+      </div>
+      <div style="min-width:0">
+        <div class="chart-section-label" id="rightChartLabel">Running average</div>
+        <div class="chart-outer">
+          <canvas class="chart-yaxis-overlay" id="lineChartY"></canvas>
+          <div class="chart-wrap" id="lineWrap">
+            <canvas id="lineChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="categoryCard" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <h2 style="margin:0;">🥧 Category Analysis</h2>
+      <div class="toggle-group">
+        <button class="toggle-btn" onclick="setCatPeriod('today', this)">Today</button>
+        <button class="toggle-btn active" onclick="setCatPeriod('week', this)">This Week</button>
+        <button class="toggle-btn" onclick="setCatPeriod('month', this)">This Month</button>
+      </div>
+    </div>
+    <div class="cat-layout">
+      <div>
+        <div class="cat-donut-wrap">
+          <canvas id="donutChart" width="216" height="216"></canvas>
+          <div class="cat-donut-center" id="donutCenter">
+            <span class="cd-label">Total</span>
+            <span class="cd-value" id="donutValue">$0</span>
+            <span class="cd-sub" id="donutSub">all categories</span>
+          </div>
+        </div>
+      </div>
+      <div class="cat-breakdown" id="catBreakdown"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let allTransactions = [];
+  let categoryList = [];
+  let currentPeriod = 'day';
+  let catPeriod = 'week';
+  let selectedCat = null;
+
+  function getDailyAvgTheme(avg) {
+    const t = Math.min(1, Math.max(0, (avg - 20) / 20));
+    function lerp(a, b, s) { return Math.round(a + (b - a) * s); }
+    let vr, vg, vb, lr, lg, lb, br, bg_, bb;
+    if (t <= 0.5) {
+      const s = t / 0.5;
+      // value: light green #86efac → yellow #fde047
+      vr = lerp(134, 253, s); vg = lerp(239, 224, s); vb = lerp(172, 71, s);
+      // label: dark green #166534 → dark amber #854d0e
+      lr = lerp(22, 133, s); lg = lerp(101, 77, s); lb = lerp(52, 14, s);
+      // bg: #f0fdf4 → #fefce8
+      br = lerp(240, 254, s); bg_ = lerp(253, 252, s); bb = lerp(244, 232, s);
+    } else {
+      const s = (t - 0.5) / 0.5;
+      // value: yellow #fde047 → red #ef4444
+      vr = lerp(253, 239, s); vg = lerp(224, 68, s); vb = lerp(71, 68, s);
+      // label: dark amber #854d0e → dark red #991b1b
+      lr = lerp(133, 153, s); lg = lerp(77, 27, s); lb = lerp(14, 27, s);
+      // bg: #fefce8 → #fef2f2
+      br = lerp(254, 254, s); bg_ = lerp(252, 242, s); bb = lerp(232, 242, s);
+    }
+    return {
+      value: `rgb(${vr},${vg},${vb})`,
+      label: `rgb(${lr},${lg},${lb})`,
+      bg: `rgb(${br},${bg_},${bb})`
+    };
+  }
+
+
+  function setCatPeriod(period, btn) {
+    catPeriod = period;
+    document.querySelectorAll('#categoryCard .toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedCat = null;
+    renderCategoryChart(allTransactions);
+  }
+
+  function setChartPeriod(period, btn) {
+    currentPeriod = period;
+    document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderCharts(allTransactions);
+  }
+
+  // Sticky Y-axis: after each draw, copy the Y-axis region to a fixed overlay canvas
+  Chart.register({
+    id: 'stickyYAxis',
+    afterDraw(chart) {
+      const overlay = document.getElementById(chart.canvas.id + 'Y');
+      if (!overlay) return;
+      const dpr = window.devicePixelRatio || 1;
+      const padLeft = 4, padTop = 8;
+      // Stop just before chartArea.left so point radii don't bleed into the overlay
+      const POINT_RADIUS = 4; // slightly more than the 3px pointRadius for safety
+      const axisCSS = Math.ceil(chart.chartArea.left) - POINT_RADIUS;
+      const wCSS = axisCSS + padLeft;
+      const hCSS = parseInt(chart.canvas.style.height) + padTop;
+      const axisPX = Math.round(axisCSS * dpr);
+      const wPX    = Math.round(wCSS * dpr);
+      const hPX    = Math.round(hCSS * dpr);
+      overlay.width = wPX;
+      overlay.height = hPX;
+      overlay.style.width  = wCSS + 'px';
+      overlay.style.height = hCSS + 'px';
+      const ctx = overlay.getContext('2d');
+      ctx.fillStyle = '#fafafa';
+      ctx.fillRect(0, 0, wPX, hPX);
+      ctx.drawImage(
+        chart.canvas,
+        0, 0, axisPX, chart.canvas.height,
+        Math.round(padLeft * dpr), Math.round(padTop * dpr),
+        axisPX, chart.canvas.height
+      );
+    }
+  });
+
+  window.onload = async () => {
+    try {
+      const r = await fetch('/api/categories');
+      categoryList = (await r.json()).categories;
+    } catch {}
+    await fetchGmailTransactions();
+  };
+
+  async function fetchGmailTransactions() {
+    const btn = document.getElementById('gmailRefreshBtn');
+    if (btn) btn.disabled = true;
+    document.getElementById('transactionsContainer').innerHTML = '<div class="empty" style="color:#9ca3af;">⏳ Loading transactions…</div>';
+    try {
+      const r = await fetch('/api/gmail/transactions');
+      const data = await r.json();
+      if (data.error) throw new Error(data.error);
+      renderGmailTransactions(data.transactions);
+    } catch (e) {
+      document.getElementById('transactionsContainer').innerHTML = `<div class="empty" style="color:#991b1b;">❌ ${e.message}</div>`;
+      console.error('Gmail fetch error:', e.message);
+    }
+    if (btn) btn.disabled = false;
+  }
+
+  function renderGmailTransactions(txns) {
+    allTransactions = txns.map(t => ({ ...t, name: t.merchant, amount: t.amount }));
+
+    const todayStr = new Date().toLocaleDateString('en-CA'); // "YYYY-MM-DD" in local time
+    const todayTotal = txns
+      .filter(t => t.date === todayStr)
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Average: total spend divided by days elapsed since first transaction (inclusive)
+    const dates = txns.map(t => t.date).sort();
+    const firstDate = new Date(dates[0]);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const daysSinceFirst = Math.round((now - firstDate) / (1000 * 60 * 60 * 24)) + 1;
+    const totalSpend = txns.reduce((sum, t) => sum + t.amount, 0);
+    const avg = totalSpend / daysSinceFirst;
+
+    document.getElementById('todaySpend').textContent = '$' + todayTotal.toFixed(2);
+    document.getElementById('avgSpend').textContent = '$' + avg.toFixed(2);
+    const avgTheme = getDailyAvgTheme(avg);
+    document.getElementById('avgSpend').style.color = avgTheme.value;
+    document.getElementById('avgLabel').style.color = avgTheme.label;
+    document.getElementById('avgTile').style.background = avgTheme.bg;
+    document.getElementById('spendingStatsCard').style.display = 'block';
+
+    document.getElementById('searchInput').disabled = false;
+    document.getElementById('categoryFilter').disabled = false;
+    // Populate category dropdown from transaction data
+    const cats = [...new Set(txns.map(t => t.category || 'Other'))].sort();
+    const sel = document.getElementById('categoryFilter');
+    sel.innerHTML = '<option value="">All Categories</option>' +
+      cats.map(c => `<option value="${c}">${c}</option>`).join('');
+    filterGmailTransactions(txns);
+    renderCharts(txns);
+    renderCategoryChart(txns);
+  }
+
+  function filterGmailTransactions(txns) {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const catFilter = document.getElementById('categoryFilter').value;
+    const filtered = txns.filter(t =>
+      (!search || t.merchant?.toLowerCase().includes(search)) &&
+      (!catFilter || (t.category || 'Other') === catFilter)
+    );
+
+    let html = `<table><thead><tr><th>Date</th><th>Merchant</th><th>Category</th><th>Amount</th></tr></thead><tbody>`;
+    filtered.slice(0, 200).forEach(t => {
+      const pill = `<span
+        class="cat-pill"
+        style="background:${t.bg||'#f3f4f6'};color:${t.color||'#374151'};cursor:pointer;"
+        title="Click to reassign"
+        onclick="openCategoryPicker(this, '${(t.merchant||'').replace(/'/g,"\\'")}')">
+        ${t.emoji||'🏷️'} ${t.category||'Other'}
+      </span>`;
+      html += `<tr>
+        <td>${t.date}</td>
+        <td><strong>${t.merchant}</strong></td>
+        <td>${pill}</td>
+        <td class="amount debit">-$${t.amount.toFixed(2)}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    document.getElementById('transactionsContainer').innerHTML = html;
+  }
+
+  function openCategoryPicker(pillEl, merchant) {
+    // If a picker is already open, close it
+    document.querySelectorAll('.cat-picker').forEach(p => p.remove());
+
+    const options = categoryList.map(c =>
+      `<option value="${c.category}" data-emoji="${c.emoji}" data-color="${c.color}" data-bg="${c.bg}">
+        ${c.emoji} ${c.category}
+      </option>`
+    ).join('');
+
+    const select = document.createElement('select');
+    select.className = 'cat-picker';
+    select.style.cssText = 'position:absolute;z-index:999;border:1px solid #e5e7eb;border-radius:8px;padding:4px 8px;font-size:13px;background:white;box-shadow:0 4px 12px rgba(0,0,0,0.12);';
+    select.innerHTML = options;
+
+    // Pre-select current value
+    const current = pillEl.textContent.trim().split(' ').slice(1).join(' ');
+    [...select.options].forEach(o => { if (o.value === current) o.selected = true; });
+
+    // Position under the pill
+    const rect = pillEl.getBoundingClientRect();
+    select.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    select.style.left = (rect.left + window.scrollX) + 'px';
+    document.body.appendChild(select);
+    select.focus();
+
+    select.onchange = async () => {
+      const chosen = select.options[select.selectedIndex];
+      const cat = { category: chosen.value, emoji: chosen.dataset.emoji, color: chosen.dataset.color, bg: chosen.dataset.bg };
+      select.remove();
+
+      // Save override
+      await fetch('/api/categories/override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ merchant, ...cat }),
+      });
+
+      // Update pill in place
+      pillEl.textContent = `${cat.emoji} ${cat.category}`;
+      pillEl.style.background = cat.bg;
+      pillEl.style.color = cat.color;
+
+      // Update in-memory transactions
+      allTransactions = allTransactions.map(t =>
+        t.merchant === merchant ? { ...t, ...cat } : t
+      );
+    };
+
+    select.onblur = () => setTimeout(() => select.remove(), 150);
+  }
+
+  function periodKey(dateStr, period) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    if (period === 'month') return `${y}-${String(m).padStart(2,'0')}`;
+    if (period === 'week') {
+      const date = new Date(y, m - 1, d);
+      const mon = new Date(date); mon.setDate(d - ((date.getDay() + 6) % 7));
+      return mon.toLocaleDateString('en-CA');
+    }
+    return dateStr;
+  }
+
+  function weekNumber(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    const jan1 = new Date(y, 0, 1);
+    return Math.ceil(((date - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+  }
+
+  function periodLabel(key, period) {
+    if (period === 'month') {
+      const [y, m] = key.split('-');
+      return new Date(y, m - 1, 1).toLocaleDateString('en-CA', { month: 'short', year: '2-digit' });
+    }
+    const [y, m, d] = key.split('-');
+    if (period === 'week') return 'W' + weekNumber(key);
+    return new Date(y, m-1, d).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
+  }
+
+  function weekTooltip(key) {
+    const [y, m, d] = key.split('-').map(Number);
+    const start = new Date(y, m - 1, d);
+    const end   = new Date(start); end.setDate(start.getDate() + 6);
+    const fmt = dt => dt.toLocaleDateString('en-CA', { month: 'long', day: 'numeric' });
+    return `W${weekNumber(key)}: ${fmt(start)} – ${fmt(end)}`;
+  }
+
+  function daysElapsedInPeriod(key, period) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (period === 'day') return 1;
+
+    if (period === 'week') {
+      const [y, m, d] = key.split('-').map(Number);
+      const weekStart = new Date(y, m - 1, d);
+      const weekEnd   = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
+      const end = weekEnd < today ? weekEnd : today;
+      return Math.max(1, Math.round((end - weekStart) / 86400000) + 1);
+    }
+
+    if (period === 'month') {
+      const [y, m] = key.split('-').map(Number);
+      const monthStart = new Date(y, m - 1, 1);
+      const monthEnd   = new Date(y, m, 0); // last day of month
+      const end = monthEnd < today ? monthEnd : today;
+      return Math.max(1, Math.round((end - monthStart) / 86400000) + 1);
+    }
+  }
+
+  function renderCharts(txns) {
+    if (!txns || !txns.length) return;
+
+    // Group spend by period key
+    const spendByPeriod = {};
+    txns.forEach(t => {
+      const key = periodKey(t.date, currentPeriod);
+      spendByPeriod[key] = (spendByPeriod[key] || 0) + t.amount;
+    });
+    const sortedKeys = Object.keys(spendByPeriod).sort();
+
+    // Fill gaps for daily view only
+    const allKeys = [];
+    if (currentPeriod === 'day') {
+      for (let d = new Date(sortedKeys[0]); ; d.setDate(d.getDate() + 1)) {
+        const key = d.toLocaleDateString('en-CA');
+        allKeys.push({ key, spend: spendByPeriod[key] || 0 });
+        if (key === sortedKeys[sortedKeys.length - 1]) break;
+      }
+    } else {
+      sortedKeys.forEach(key => allKeys.push({ key, spend: spendByPeriod[key] }));
+    }
+
+    const labels    = allKeys.map(e => periodLabel(e.key, currentPeriod));
+    const tooltipTitles = currentPeriod === 'week'
+      ? allKeys.map(e => weekTooltip(e.key))
+      : labels;
+
+    // Left: always total spend for the period
+    const barData = allKeys.map(e => +e.spend.toFixed(2));
+
+    // Right: avg daily spend for the period (comparable across periods)
+    // Daily → running cumulative average
+    // Weekly/Monthly → period total ÷ days elapsed
+    let avgData;
+    if (currentPeriod === 'day') {
+      avgData = allKeys.map((_, i) => {
+        const cum = allKeys.slice(0, i + 1).reduce((s, e) => s + e.spend, 0);
+        return +(cum / (i + 1)).toFixed(2);
+      });
+    } else {
+      avgData = allKeys.map(e => +(e.spend / daysElapsedInPeriod(e.key, currentPeriod)).toFixed(2));
+    }
+
+    const rightLabel = currentPeriod === 'day' ? 'Running avg' : 'Daily avg this period';
+    document.getElementById('leftChartLabel').textContent =
+      currentPeriod === 'day' ? 'Spend per day' :
+      currentPeriod === 'week' ? 'Total spend per week' : 'Total spend per month';
+    document.getElementById('rightChartLabel').textContent =
+      currentPeriod === 'day' ? 'Running average' :
+      currentPeriod === 'week' ? 'Daily avg per week' : 'Daily avg per month';
+
+    document.getElementById('chartsCard').style.display = 'block';
+    Chart.getChart('barChart')?.destroy();
+    Chart.getChart('lineChart')?.destroy();
+
+    const PX_PER = currentPeriod === 'day' ? 60 : currentPeriod === 'week' ? 80 : 90;
+    const Y_AXIS_W = 55;
+    const CHART_H = 200;
+    // Stretch canvas to fill the actual container width; scroll only when data is wider
+    const containerW = document.getElementById('barChart').closest('.chart-outer').offsetWidth || 400;
+    const dataW = allKeys.length * PX_PER + Y_AXIS_W;
+    const canvasW = Math.max(dataW, containerW);
+
+    ['barWrap','lineWrap'].forEach(id => { document.getElementById(id).style.width = ''; });
+    ['barChart','lineChart'].forEach(id => {
+      const c = document.getElementById(id);
+      c.style.width = canvasW + 'px'; c.style.height = CHART_H + 'px';
+      c.width = canvasW; c.height = CHART_H;
+    });
+
+    const sharedOpts = () => ({
+      responsive: false, animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          title: ctx => tooltipTitles[ctx[0].dataIndex],
+          label: ctx => '  $' + ctx.parsed.y.toFixed(2),
+        }},
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 }, maxRotation: 0 } },
+        y: { ticks: { callback: v => '$' + v, font: { size: 11 } }, grid: { color: '#f3f4f6' } },
+      },
+    });
+
+    new Chart(document.getElementById('barChart'), {
+      type: 'bar',
+      data: { labels, datasets: [{ data: barData, backgroundColor: '#6366f1cc', borderRadius: 6, borderSkipped: false }] },
+      options: sharedOpts(),
+    });
+
+    new Chart(document.getElementById('lineChart'), {
+      type: 'line',
+      data: { labels, datasets: [{ label: rightLabel, data: avgData, borderColor: '#10b981', backgroundColor: '#10b98120', borderWidth: 2, pointRadius: 3, fill: true, tension: 0.3 }] },
+      options: sharedOpts(),
+    });
+
+    ['barWrap','lineWrap'].forEach(id => { const el = document.getElementById(id); el.scrollLeft = el.scrollWidth; });
+  }
+
+  function renderCategoryChart(txns) {
+    if (!txns || !txns.length) return;
+    document.getElementById('categoryCard').style.display = 'block';
+
+    // Filter to current period: today, this calendar week, this calendar month
+    const now = new Date();
+    const todayStr = now.toLocaleDateString('en-CA');
+    let cutoffStr;
+    if (catPeriod === 'today') {
+      cutoffStr = todayStr;
+    } else if (catPeriod === 'week') {
+      // Monday of this week
+      const mon = new Date(now);
+      mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+      cutoffStr = mon.toLocaleDateString('en-CA');
+    } else {
+      // 1st of this month
+      cutoffStr = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-CA');
+    }
+    const filtered = txns.filter(t => t.date >= cutoffStr && (catPeriod !== 'today' || t.date === todayStr));
+
+    // Aggregate by category, grouping by the same periodKey buckets
+    const totals = {};
+    filtered.forEach(t => {
+      const key = t.category || 'Other';
+      if (!totals[key]) totals[key] = { total: 0, color: t.color || '#6b7280', bg: t.bg || '#f9fafb', emoji: t.emoji || '🏷️' };
+      totals[key].total += t.amount;
+    });
+
+    const sorted = Object.entries(totals)
+      .sort((a, b) => b[1].total - a[1].total);
+    const grandTotal = sorted.reduce((s, [, v]) => s + v.total, 0);
+
+    const subLabel = catPeriod === 'today' ? 'today' : catPeriod === 'week' ? 'this week' : 'this month';
+
+    // Donut chart
+    Chart.getChart('donutChart')?.destroy();
+    const donut = new Chart(document.getElementById('donutChart'), {
+      type: 'doughnut',
+      data: {
+        labels: sorted.map(([k]) => k),
+        datasets: [{
+          data: sorted.map(([, v]) => +v.total.toFixed(2)),
+          backgroundColor: sorted.map(([, v]) => v.color + 'cc'),
+          borderColor: sorted.map(([, v]) => v.color),
+          borderWidth: 1.5,
+          hoverOffset: 6,
+        }],
+      },
+      options: {
+        responsive: false,
+        cutout: '62%',
+        layout: { padding: 8 },
+        animation: { duration: 400 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const val = ctx.parsed;
+                const pct = grandTotal > 0 ? (val / grandTotal * 100).toFixed(1) : 0;
+                return `  $${val.toFixed(2)} (${pct}%)`;
+              },
+            },
+          },
+        },
+        onClick: (_, elements) => {
+          if (!elements.length) { selectedCat = null; updateDonutCenter(grandTotal, null, subLabel); highlightRows(null); return; }
+          const idx = elements[0].index;
+          const [cat, meta] = sorted[idx];
+          if (selectedCat === cat) {
+            selectedCat = null;
+            updateDonutCenter(grandTotal, null, subLabel);
+            highlightRows(null);
+          } else {
+            selectedCat = cat;
+            updateDonutCenter(meta.total, cat, grandTotal);
+            highlightRows(cat);
+          }
+        },
+      },
+    });
+
+    updateDonutCenter(grandTotal, null, subLabel);
+
+    // Breakdown list
+    const breakdown = document.getElementById('catBreakdown');
+    breakdown.innerHTML = sorted.map(([cat, meta]) => {
+      const pct = grandTotal > 0 ? (meta.total / grandTotal * 100) : 0;
+      return `<div class="cat-row" data-cat="${cat}" onclick="selectCatRow(this,'${cat.replace(/'/g,"\\'")}')">
+        <span class="cr-swatch" style="background:${meta.color}"></span>
+        <span class="cr-name" title="${cat}">${meta.emoji} ${cat}</span>
+        <span class="cr-bar-track"><span class="cr-bar-fill" style="width:${pct.toFixed(1)}%;background:${meta.color}88"></span></span>
+        <span class="cr-amt" style="color:${meta.color}">$${meta.total.toFixed(2)}</span>
+        <span class="cr-pct">${pct.toFixed(1)}%</span>
+      </div>`;
+    }).join('');
+  }
+
+  function updateDonutCenter(total, cat, grandTotalOrLabel) {
+    document.getElementById('donutValue').textContent = '$' + total.toFixed(2);
+    if (cat) {
+      const pct = typeof grandTotalOrLabel === 'number' && grandTotalOrLabel > 0
+        ? (total / grandTotalOrLabel * 100).toFixed(1) + '% of total'
+        : '';
+      document.getElementById('donutSub').textContent = pct;
+    } else {
+      document.getElementById('donutSub').textContent = grandTotalOrLabel || 'all categories';
+    }
+    document.querySelector('#donutCenter .cd-label').textContent = cat || 'Total';
+  }
+
+  function highlightRows(cat) {
+    document.querySelectorAll('.cat-row').forEach(r => {
+      r.classList.toggle('selected', r.dataset.cat === cat);
+    });
+  }
+
+  function selectCatRow(el, cat) {
+    selectedCat = selectedCat === cat ? null : cat;
+    highlightRows(selectedCat);
+    let gt = 0;
+    document.querySelectorAll('#catBreakdown .cr-amt').forEach(a => gt += parseFloat(a.textContent.replace('$','')));
+    if (selectedCat) {
+      const total = parseFloat(el.querySelector('.cr-amt').textContent.replace('$',''));
+      updateDonutCenter(total, cat, gt);
+    } else {
+      const subLabel = catPeriod === 'today' ? 'today' : catPeriod === 'week' ? 'this week' : 'this month';
+      updateDonutCenter(gt, null, subLabel);
+    }
+  }
+
+  function showError(msg) {
+    const bar = document.getElementById('statusBar');
+    bar.className = 'status-bar error';
+    bar.textContent = '❌ ' + msg;
+  }
+
+</script>
+</body>
+</html>

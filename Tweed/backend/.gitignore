@@ -1,0 +1,10 @@
+# Dependencies
+node_modules/
+
+# Environment secrets — never commit
+.env
+
+# Local session store
+store.json
+gmail-tokens.json
+txn-cache.json
