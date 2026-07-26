@@ -393,6 +393,11 @@
             z-index: 5;
         }
 
+        .heatmap-cell.future {
+            opacity: 0.35;
+            cursor: default;
+        }
+
         .heatmap-cell:hover {
             transform: scale(1.5);
             z-index: 10;
@@ -452,7 +457,7 @@
         }
 
         .day-count-btn:hover {
-            background: var(--blue);
+            background: var(--accent);
             color: white;
         }
 
@@ -875,8 +880,37 @@
 
         /* Mobile Sidebar */
         @media (max-width: 768px) {
+            /* On desktop the sidebar pushes the page across. On a 390px phone that
+               same 300px push shoved the whole app off screen, so overlay instead. */
             body.sidebar-visible {
                 overflow: hidden;
+                margin-left: 0;
+                padding-left: 0;
+            }
+
+            .task-sidebar {
+                width: 82vw;
+                max-width: 300px;
+                left: -82vw;
+                padding-top: 64px;
+                background: #101012;
+            }
+
+            .task-sidebar.visible {
+                left: 0;
+            }
+
+            /* Anchor the close button inside the panel rather than at a fixed
+               300px, which landed outside a narrower sidebar. */
+            .task-sidebar-close {
+                position: absolute;
+                left: auto;
+                right: 12px;
+                top: 12px;
+                width: 40px;
+                height: 40px;
+                border-radius: 10px;
+                border: 1px solid var(--border);
             }
         }
     </style>
@@ -931,13 +965,13 @@
         <div class="graph-section">
             <div class="graph-label">
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <span>Moving Average (Since Dec 21)</span>
+                    <span>Cumulative Average (Since Dec 21)</span>
                     <div class="graph-window-selectors" id="graphWindowSelectors">
-                        <button class="window-btn" data-window="7D">7D</button>
-                        <button class="window-btn active" data-window="30D">30D</button>
-                        <button class="window-btn" data-window="90D">90D</button>
-                        <button class="window-btn" data-window="1Y">1Y</button>
-                        <button class="window-btn" data-window="All">All</button>
+                        <button class="window-btn" data-window="7D" title="This week">Week</button>
+                        <button class="window-btn active" data-window="30D" title="This month">Month</button>
+                        <button class="window-btn" data-window="90D" title="This quarter">Quarter</button>
+                        <button class="window-btn" data-window="1Y" title="This year">Year</button>
+                        <button class="window-btn" data-window="All" title="All data">All</button>
                     </div>
                 </div>
                 <span id="currentAvg">0%</span>
@@ -970,7 +1004,7 @@
 
     <div class="footer">
         <div style="color: var(--text-dim); font-size: 0.75rem; margin-bottom: 15px;">
-            v<span id="appVersion">1.0.5</span>
+            v<span id="appVersion">1.0.6</span>
         </div>
         <button class="reset-btn" onclick="clearDay()">Clear Data for this Day</button>
         <button class="reset-btn" style="margin-left: 10px; border-color: var(--red); color:var(--red);"
@@ -978,7 +1012,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.0.5';
+        const APP_VERSION = '1.0.6';
         const DEFAULT_ACTIVITIES = ["Sleep", "Code", "Work", "Read", "Workout", "Stretch", "Looksmax", "Pray", "Netflix"];
         const START_HOUR = 5;
         const TOTAL_HOURS = 24;
@@ -986,17 +1020,42 @@
         const MOMENTUM_MULTIPLIER = 1.5;
         const RINGS_MULTIPLIER = 1.2;
         const WEIGHT_MULTIPLIER = 1.3;
+        const HEATMAP_WEEKS = 16; // ~4 months of history, ending with the current week
 
         const MA_BASE_DATE = new Date(2025, 11, 21); // Dec 21, 2025
         let currentViewDate = new Date();
         currentViewDate.setHours(0, 0, 0, 0);
 
+        const DATA_KEY = 'rayane_tracker_v2';
+        const STATS_KEY = 'rayane_tracker_stats';
+        const TASKS_KEY = 'rayane_tasks';
+
         let selectedActivity = "Code";
         let dayData = {};
-        let dayStats = { momentum: 1, rings: false, weight: false };
+        let dayStats = { rings: false, weight: false };
         let dayCount = parseInt(localStorage.getItem('rayane_day_count')) || 1;
         let graphWindow = localStorage.getItem('rayane_graph_window') || '30D';
         let tasks = []; // Dynamic tasks list
+
+        // A single bad write used to blank the whole app: every read was a bare
+        // JSON.parse, and a throw in init() left nothing on screen. Read defensively.
+        function readStore(key, fallback = {}) {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(key));
+                return (parsed && typeof parsed === 'object') ? parsed : fallback;
+            } catch (err) {
+                console.warn(`Could not read ${key}, falling back to empty:`, err);
+                return fallback;
+            }
+        }
+
+        function writeStore(key, value) {
+            try {
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch (err) {
+                console.error(`Could not save ${key}:`, err);
+            }
+        }
 
         const gridEl = document.getElementById('grid');
         const scoreEl = document.getElementById('dailyScore');
@@ -1005,12 +1064,12 @@
 
         // Task Management Functions
         function loadTasks() {
-            const stored = localStorage.getItem('rayane_tasks');
-            if (stored) {
-                tasks = JSON.parse(stored);
+            const stored = readStore(TASKS_KEY, null);
+            if (Array.isArray(stored) && stored.length) {
+                tasks = stored;
             } else {
                 // Initialize with default activities
-                tasks = DEFAULT_ACTIVITIES.map((name, index) => ({
+                tasks = DEFAULT_ACTIVITIES.map(name => ({
                     name,
                     protected: name === 'Sleep'
                 }));
@@ -1019,7 +1078,7 @@
         }
 
         function saveTasks() {
-            localStorage.setItem('rayane_tasks', JSON.stringify(tasks));
+            writeStore(TASKS_KEY, tasks);
         }
 
         function getTaskNames() {
@@ -1066,6 +1125,13 @@
 
             tasks = tasks.filter(t => t.name !== name);
             saveTasks();
+
+            // Don't leave the picker pointing at a task that no longer exists.
+            // Past slots keep the old name on purpose — that history still happened.
+            if (selectedActivity === name) {
+                selectedActivity = tasks.length ? tasks[0].name : '';
+            }
+
             renderTaskSidebar();
             renderPresets();
             hideTaskError();
@@ -1094,10 +1160,32 @@
             if (index !== -1) {
                 tasks[index].name = newName;
                 saveTasks();
+                migrateActivityName(oldName, newName);
                 hideTaskError();
                 return true;
             }
             return false;
+        }
+
+        // Renaming a task used to leave the old name on every slot already logged,
+        // so history and the task list drifted apart. Rewrite the stored slots too.
+        function migrateActivityName(oldName, newName) {
+            if (oldName === newName) return;
+
+            const allData = readStore(DATA_KEY);
+            let changed = false;
+
+            Object.values(allData).forEach(day => {
+                Object.values(day).forEach(slot => {
+                    if (slot && slot.activity === oldName) {
+                        slot.activity = newName;
+                        changed = true;
+                    }
+                });
+            });
+
+            if (changed) writeStore(DATA_KEY, allData);
+            if (selectedActivity === oldName) selectedActivity = newName;
         }
 
         function showTaskError(message) {
@@ -1173,6 +1261,8 @@
                 if (renameTask(oldName, newName)) {
                     renderTaskSidebar();
                     renderPresets();
+                    renderGrid(); // slot labels carry the activity name
+                    updateTimeIndicator();
                 }
             };
 
@@ -1223,9 +1313,7 @@
                     localStorage.setItem('rayane_graph_window', graphWindow);
                     selectors.forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
-                    const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
-                    const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
-                    renderProgressGraph(allData, allStats);
+                    renderProgressGraph(readStore(DATA_KEY), readStore(STATS_KEY));
                 };
             });
         }
@@ -1277,15 +1365,15 @@
             const formatted = currentViewDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
             dateEl.innerText = (key === getDateKey(new Date())) ? `Today — ${formatted}` : formatted;
 
-            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
-            const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
+            const allData = readStore(DATA_KEY);
+            const allStats = readStore(STATS_KEY);
 
             if (!allData[key]) {
                 allData[key] = {};
                 Object.entries(SCHEDULE).forEach(([idx, act]) => {
                     allData[key][idx] = { activity: act, status: 'neutral' };
                 });
-                localStorage.setItem('rayane_tracker_v2', JSON.stringify(allData));
+                writeStore(DATA_KEY, allData);
             }
 
             dayData = allData[key];
@@ -1304,7 +1392,7 @@
 
             updateMultiplierStyles();
             renderGrid();
-            recalculateScore(momentumActive);
+            recalculateScore(allData, allStats);
             renderProgressGraph(allData, allStats);
             updateTimeIndicator();
         }
@@ -1446,38 +1534,19 @@
             // Using a loop prevents DST math errors (23h days)
             while (targetDate <= calculationEnd) {
                 const k = getDateKey(targetDate);
-                let dayScore = 0;
-                let hasValidData = false;
-                if (allData[k] || allStats[k]) {
-                    const st = allStats[k] || {};
-                    const slots = allData[k] ? Object.values(allData[k]) : [];
-                    const doneCount = slots.filter(s => s.status === 'done').length;
-                    const failCount = slots.filter(s => s.status === 'fail').length;
 
-                    const momentumActive = calculateMomentum(allData, allStats, targetDate);
-                    const hasMultiplierState = st.rings || st.weight || momentumActive;
+                if (hasDayActivity(k, allData, allStats)) {
+                    cumulativeSum += getDayScore(k, allData, allStats);
+                    cumulativeCount++;
+                    latestAvg = cumulativeSum / cumulativeCount;
 
-                    // A day is included if there's any active work/failure or multiplier state.
-                    if (doneCount > 0 || failCount > 0 || hasMultiplierState) {
-                        hasValidData = true;
-                        dayScore = calculateScoreValue(doneCount, st, momentumActive);
+                    if (targetDate >= chartStart && targetDate <= chartEnd) {
+                        // Round, not floor: a DST boundary makes this 23.0 or 25.0 hours.
+                        const daysOffset = Math.round((targetDate - chartStart) / (1000 * 60 * 60 * 24));
+                        points.push({ x: daysOffset, y: latestAvg });
                     }
                 }
 
-                if (hasValidData) {
-                    cumulativeSum += dayScore;
-                    cumulativeCount++;
-                }
-
-                const rawAvg = cumulativeCount > 0 ? cumulativeSum / cumulativeCount : 0;
-                const displayAvg = Math.min(rawAvg, 1.0);
-                latestAvg = rawAvg;
-
-                // Plotting: Clamp to 100% for the graph line height, but use uncapped latestAvg for the label
-                if (targetDate >= chartStart && targetDate <= chartEnd && hasValidData) {
-                    const daysOffset = Math.floor((targetDate - chartStart) / (1000 * 60 * 60 * 24));
-                    points.push({ x: daysOffset, y: displayAvg, hasData: true });
-                }
                 targetDate.setDate(targetDate.getDate() + 1);
             }
 
@@ -1552,7 +1621,7 @@
 
             points.forEach((p, idx) => {
                 const x = paddingX + (p.x * (chartW / xDivisor));
-                const y = paddingY + chartH - (Math.min(p.y, 1.2) * chartH);
+                const y = paddingY + chartH - (p.y * chartH);
                 if (idx === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             });
@@ -1567,41 +1636,38 @@
             ctx.fillStyle = grad;
             ctx.fill();
 
-            // Latest Point dot
-            // We want to highlight the LATEST point AVAILABLE in data, not necessarily Today
-            const dataPoints = points.filter(p => p.hasData);
-            if (dataPoints.length > 0) {
-                const lastDataP = dataPoints[dataPoints.length - 1];
-                const lastX = paddingX + (lastDataP.x * (chartW / xDivisor));
-                const lastY = paddingY + chartH - (Math.min(lastDataP.y, 1.2) * chartH);
-                ctx.fillStyle = '#007AFF';
-                ctx.beginPath();
-                ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
+            // Highlight the latest point that has data, not necessarily today
+            const lastP = points[points.length - 1];
+            const lastX = paddingX + (lastP.x * (chartW / xDivisor));
+            const lastY = paddingY + chartH - (lastP.y * chartH);
+            ctx.fillStyle = '#007AFF';
+            ctx.beginPath();
+            ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
         }
 
-        function calculateMomentum(allData, allStats, referenceDate = currentViewDate) {
-            let totalPercent = 0;
-            let daysCount = 0;
+        // ─── Scoring ──────────────────────────────────────────────────────────
+        // One definition, used by the badge, the graph and the heatmap alike.
+        // These three used to disagree, which is why momentum and the chart
+        // could show different numbers for the same day.
 
-            for (let i = 1; i <= 7; i++) {
-                const d = new Date(referenceDate);
-                d.setDate(d.getDate() - i);
-                const k = getDateKey(d);
+        // A day only counts once something actually happened on it. Opening a
+        // date seeds an empty sleep block in storage, and that must never be
+        // mistaken for a logged 0% day.
+        function hasDayActivity(key, allData, allStats) {
+            const stats = allStats[key] || {};
+            if (stats.rings || stats.weight) return true;
 
-                if (allData[k] || allStats[k]) {
-                    const dailyScore = getScore(k, allData, allStats);
-                    totalPercent += dailyScore;
-                    daysCount++;
-                }
-            }
+            const slots = allData[key] ? Object.values(allData[key]) : [];
+            return slots.some(s => s && (s.status === 'done' || s.status === 'fail'));
+        }
 
-            if (daysCount === 0) return false;
-            return (totalPercent / daysCount) > 0.5;
+        function countDone(key, allData) {
+            if (!allData[key]) return 0;
+            return Object.values(allData[key]).filter(s => s && s.status === 'done').length;
         }
 
         function calculateScoreValue(doneCount, stats = {}, momentumActive = false) {
@@ -1611,7 +1677,43 @@
             if (stats.rings) score *= RINGS_MULTIPLIER;
             if (stats.weight) score *= WEIGHT_MULTIPLIER;
 
-            return score;
+            // Stacked multipliers reach 2.34x, so this is a real ceiling, not a
+            // formality. Without it the chart line clamped but the printed
+            // average didn't, and the two silently disagreed.
+            return Math.max(0, Math.min(score, 1));
+        }
+
+        // Score before momentum is applied. Momentum is derived from these, so it
+        // cannot itself depend on momentum — that's what keeps this non-recursive.
+        function getBaseScore(key, allData, allStats) {
+            return calculateScoreValue(countDone(key, allData), allStats[key] || {}, false);
+        }
+
+        // Momentum: of the 7 days before referenceDate, the ones with real
+        // activity average above 50%.
+        function calculateMomentum(allData, allStats, referenceDate = currentViewDate) {
+            let totalPercent = 0;
+            let daysCount = 0;
+
+            for (let i = 1; i <= 7; i++) {
+                const d = new Date(referenceDate);
+                d.setDate(d.getDate() - i);
+                const k = getDateKey(d);
+
+                if (!hasDayActivity(k, allData, allStats)) continue;
+                totalPercent += getBaseScore(k, allData, allStats);
+                daysCount++;
+            }
+
+            if (daysCount === 0) return false;
+            return (totalPercent / daysCount) > 0.5;
+        }
+
+        // The final score for a day, momentum included.
+        function getDayScore(key, allData, allStats) {
+            if (!hasDayActivity(key, allData, allStats)) return 0;
+            const momentumActive = calculateMomentum(allData, allStats, parseDateKey(key));
+            return calculateScoreValue(countDone(key, allData), allStats[key] || {}, momentumActive);
         }
 
         function updateMultiplierStyles() {
@@ -1642,22 +1744,31 @@
         function refreshViewsAfterDataChange(allData) {
             dayData = allData[getDateKey(currentViewDate)] || {};
 
-            const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
+            const allStats = readStore(STATS_KEY);
+
+            // Momentum can flip on any edit, so refresh the badge with it.
             const momentumActive = calculateMomentum(allData, allStats);
-            recalculateScore(momentumActive);
+            const momentumEl = document.getElementById('itemMomentum');
+            if (momentumEl) {
+                momentumEl.classList.toggle('active', momentumActive);
+                momentumEl.querySelector('span').innerText = momentumActive ? "Momentum Active (1.5x) 🔥" : "Momentum (1.0x)";
+            }
+
+            recalculateScore(allData, allStats);
             renderProgressGraph(allData, allStats);
             renderHeatmap();
         }
 
         function deleteSlot(dayKey, index) {
-            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
+            const allData = readStore(DATA_KEY);
             if (!allData[dayKey] || !allData[dayKey][index]) {
                 return;
             }
 
             delete allData[dayKey][index];
-            localStorage.setItem('rayane_tracker_v2', JSON.stringify(allData));
+            writeStore(DATA_KEY, allData);
             renderGrid();
+            updateTimeIndicator();
             refreshViewsAfterDataChange(allData);
         }
 
@@ -1677,7 +1788,7 @@
             indicatorVal.id = 'timeIndicator';
             gridEl.appendChild(indicatorVal);
 
-            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
+            const allData = readStore(DATA_KEY);
 
             for (let i = 0; i < TOTAL_HOURS; i++) {
                 const hour = (START_HOUR + i) % 24;
@@ -1724,10 +1835,6 @@
             }
         }
 
-        function handleSlotClick(el, index) {
-            handleSlotClickMulti(el, index, getDateKey(currentViewDate));
-        }
-
         function handleSlotClickMulti(el, index, dayKey) {
             let status = 'empty';
             if (el.classList.contains('status-neutral')) status = 'neutral';
@@ -1738,7 +1845,7 @@
             void el.offsetWidth;
             el.classList.add('pop-anim');
 
-            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
+            const allData = readStore(DATA_KEY);
             if (!allData[dayKey]) allData[dayKey] = {};
 
             if (status === 'empty') {
@@ -1756,7 +1863,7 @@
                 delete allData[dayKey][index];
             }
 
-            localStorage.setItem('rayane_tracker_v2', JSON.stringify(allData));
+            writeStore(DATA_KEY, allData);
             refreshViewsAfterDataChange(allData);
         }
 
@@ -1768,41 +1875,33 @@
             heatmapEl.innerHTML = '';
             labelsEl.innerHTML = '';
 
-            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
-            const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
+            // Column count lives in one place (HEATMAP_WEEKS) so the CSS grid and
+            // the render loop can't disagree about how many weeks are shown.
+            const columns = `repeat(${HEATMAP_WEEKS}, 1fr)`;
+            heatmapEl.style.gridTemplateColumns = columns;
+            labelsEl.style.gridTemplateColumns = columns;
+
+            const allData = readStore(DATA_KEY);
+            const allStats = readStore(STATS_KEY);
 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
+            const todayKey = getDateKey(today);
 
-            // Calculate start date: Go back to the nearest Monday 12 weeks ago
-            const weeksToShow = 16; // Extend to cover ~4 months
-            const daysToShow = weeksToShow * 7;
-            const startDate = new Date(today);
-            // Adjust to start on a Monday (if today is Sunday(0), go back 6 days. Else back day-1)
-            const dayOfWeek = startDate.getDay();
-            const diffToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-            startDate.setDate(startDate.getDate() - diffToMon - (weeksToShow * 7) + 7);
-            // The logic above tries to show exactly N weeks ending near today. 
-            // Let's simplify: Start 11 weeks ago Monday, end this week Sunday.
-
-            // Actually, GitHub graph usually ends today. 
-            // So let's just render 12 columns (weeks). 
-            // Column 1 is 11 weeks ago. Column 12 is this week.
-
-            // Reset start date logic:
-            // Find "This Week's Monday"
+            // Monday of the current week
             const currentMon = new Date(today);
-            const d = currentMon.getDay();
-            const diff = d === 0 ? 6 : d - 1;
-            currentMon.setDate(currentMon.getDate() - diff); // This Monday
+            const dow = currentMon.getDay();
+            currentMon.setDate(currentMon.getDate() - (dow === 0 ? 6 : dow - 1));
 
-            // Start date = This Monday (Current week)
+            // Start HEATMAP_WEEKS - 1 weeks earlier so the grid *ends* with the
+            // current week. It used to start here and run forward, so the whole
+            // chart was empty future days and no history ever showed up.
             const startRenderDate = new Date(currentMon);
+            startRenderDate.setDate(startRenderDate.getDate() - (HEATMAP_WEEKS - 1) * 7);
 
             let lastMonthLabel = -1;
 
-            // Loop 16 weeks
-            for (let w = 0; w < 16; w++) {
+            for (let w = 0; w < HEATMAP_WEEKS; w++) {
                 // Check for month label on the first week of a month
                 const weekDate = new Date(startRenderDate);
                 weekDate.setDate(weekDate.getDate() + (w * 7));
@@ -1827,36 +1926,22 @@
                     const cell = document.createElement('div');
                     cell.className = 'heatmap-cell';
 
-                    // Highlight today
-                    const todayKey = getDateKey(today);
                     if (k === todayKey) {
                         cell.classList.add('today');
                     }
 
-                    // Logic: Hide past data. Only show coloring for TODAY onwards.
-                    let score = 0;
-                    // Only fetch score if date is >= today (normalized)
-                    if (cellDate >= today) {
-                        score = getScore(k, allData, allStats);
-                        cell.title = `${cellDate.toLocaleDateString()} - ${Math.round(score * 100)}%`;
+                    if (cellDate > today) {
+                        // Days that haven't happened yet — dim, no score to show.
+                        cell.classList.add('future');
+                        cell.title = `${cellDate.toLocaleDateString()} (upcoming)`;
                     } else {
-                        // For past days shown in the grid, show them as dim empty cells
-                        cell.title = `${cellDate.toLocaleDateString()} (Past)`;
-                        cell.style.opacity = '0.2';
-                        cell.style.cursor = 'default';
-                        // Optional: disable click for past days if desired, but keeping enabled for now
-                    }
+                        const score = getDayScore(k, allData, allStats);
+                        cell.title = `${cellDate.toLocaleDateString()} — ${Math.round(score * 100)}%`;
 
-                    // Color gradient logic (only for >= today with score > 0)
-                    if (score > 0) {
-                        // Using HSL: Green is 120, Red is 0.
-                        // User wants 24 colors. Let's go Red -> Yellow -> Green.
-                        // Hue moves from 0 (Red) to 120 (Green).
-                        const hue = Math.round(score * 120);
-
-                        // Saturation 70%, Lightness 50% for visibility
-                        // Or use opacity on green? User asked for 24 distinct colors. Hue shift is best.
-                        cell.style.background = `hsl(${hue}, 75%, 45%)`;
+                        if (score > 0) {
+                            // Hue sweeps red (0) → green (120) with the score.
+                            cell.style.background = `hsl(${Math.round(score * 120)}, 75%, 45%)`;
+                        }
                     }
 
                     cell.onclick = () => {
@@ -1869,47 +1954,20 @@
             }
         }
 
-        function getScore(key, allData, allStats, referenceDate) {
-            const data = allData[key];
-            const stats = allStats[key] || {};
-
-            let doneCount = 0;
-            if (data) {
-                doneCount = Object.values(data).filter(s => s.status === 'done').length;
-            }
-
-            // Only apply momentum when referenceDate is provided.
-            // This is safe because calculateMomentum always looks backwards.
-            const momentumActive = referenceDate ? calculateMomentum(allData, allStats, referenceDate) : false;
-            return calculateScoreValue(doneCount, stats, momentumActive);
-        }
-
-        function saveSlot(index, activity, status) {
-            const key = getDateKey(currentViewDate);
-            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
-            if (!allData[key]) allData[key] = {};
-            if (status === 'empty') delete allData[key][index];
-            else allData[key][index] = { activity, status };
-            dayData = allData[key];
-            localStorage.setItem('rayane_tracker_v2', JSON.stringify(allData));
-        }
-
         function updateStats() {
             dayStats.rings = document.getElementById('checkRings').checked;
             dayStats.weight = document.getElementById('checkWeight').checked;
 
             const key = getDateKey(currentViewDate);
-            const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
+            const allStats = readStore(STATS_KEY);
             allStats[key] = dayStats;
-            localStorage.setItem('rayane_tracker_stats', JSON.stringify(allStats));
+            writeStore(STATS_KEY, allStats);
 
             updateDisplay();
         }
 
-        function recalculateScore(momentumActive) {
-            const slots = Object.values(dayData);
-            const done = slots.filter(s => s.status === 'done').length;
-            const score = calculateScoreValue(done, dayStats, momentumActive);
+        function recalculateScore(allData, allStats) {
+            const score = getDayScore(getDateKey(currentViewDate), allData, allStats);
 
             const percent = Math.round(score * 100);
             scoreEl.innerText = percent + "%";
@@ -1923,16 +1981,16 @@
 
         function clearDay() {
             const key = getDateKey(currentViewDate);
-            const allData = JSON.parse(localStorage.getItem('rayane_tracker_v2')) || {};
-            const allStats = JSON.parse(localStorage.getItem('rayane_tracker_stats')) || {};
+            const allData = readStore(DATA_KEY);
+            const allStats = readStore(STATS_KEY);
 
             // Remove day-specific data
             delete allStats[key];
             delete allData[key];
 
             // Save updates
-            localStorage.setItem('rayane_tracker_v2', JSON.stringify(allData));
-            localStorage.setItem('rayane_tracker_stats', JSON.stringify(allStats));
+            writeStore(DATA_KEY, allData);
+            writeStore(STATS_KEY, allStats);
 
             // Refresh UI without reloading page (preserves currentViewDate)
             updateDisplay();
@@ -1941,8 +1999,8 @@
 
         function clearAllData() {
             if (confirm("Are you sure you want to delete ALL history? This cannot be undone.")) {
-                localStorage.removeItem('rayane_tracker_v2');
-                localStorage.removeItem('rayane_tracker_stats');
+                localStorage.removeItem(DATA_KEY);
+                localStorage.removeItem(STATS_KEY);
                 localStorage.removeItem('rayane_day_count');
                 localStorage.removeItem('rayane_graph_window');
                 location.reload();

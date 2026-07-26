@@ -3,3 +3,6 @@ backend/gmail-tokens.json
 backend/txn-cache.json
 .env
 *.env
+
+# Runtime logs
+*.log

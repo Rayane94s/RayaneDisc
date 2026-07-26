@@ -19,6 +19,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "..", "public")));
 
+// Anything interpolated into an HTML response has to be escaped — the OAuth
+// callback echoes back values that arrive straight off the query string.
+const escapeHtml = (value) =>
+  String(value).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[c]);
+
 // ─── Categories ────────────────────────────────────────────────────────────────
 app.get("/api/categories", (req, res) => {
   const list = [...RULES.map(r => ({ category: r.category, emoji: r.emoji, color: r.color, bg: r.bg })), DEFAULT];
@@ -46,7 +53,7 @@ app.get("/api/gmail/auth", (req, res) => {
 
 app.get("/api/gmail/callback", async (req, res) => {
   const { code, error } = req.query;
-  if (error) return res.send(`<h2>❌ Auth failed: ${error}</h2>`);
+  if (error) return res.status(400).send(`<h2>❌ Auth failed: ${escapeHtml(error)}</h2>`);
   try {
     await exchangeCode(code);
     res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -56,7 +63,7 @@ app.get("/api/gmail/callback", async (req, res) => {
       <h2 style="color:#166534">Gmail Connected!</h2><p style="color:#6b7280">Fetching your Scotia transactions…</p>
       </div></body></html>`);
   } catch (err) {
-    res.status(500).send(`<h2>Error: ${err.message}</h2>`);
+    res.status(500).send(`<h2>Error: ${escapeHtml(err.message)}</h2>`);
   }
 });
 

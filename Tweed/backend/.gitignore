@@ -8,3 +8,6 @@ node_modules/
 store.json
 gmail-tokens.json
 txn-cache.json
+
+# Runtime logs
+*.log
