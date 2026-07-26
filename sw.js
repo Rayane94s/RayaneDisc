@@ -1,5 +1,5 @@
 // Update this version number whenever you make changes to force cache refresh
-const CACHE_VERSION = '1.0.6';
+const CACHE_VERSION = '1.0.7';
 const CACHE_NAME = `rayane-tracker-v${CACHE_VERSION}`;
 const coreUrlsToCache = [
   './',
@@ -9,9 +9,8 @@ const coreUrlsToCache = [
   './icon-192.png',
   './icon-512.png'
 ];
-const optionalUrlsToCache = [
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap'
-];
+// The app uses the system font stack, so there is nothing external to cache.
+const optionalUrlsToCache = [];
 
 // Listen for skip-waiting message from the page
 self.addEventListener('message', event => {

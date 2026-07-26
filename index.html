@@ -12,208 +12,481 @@
     <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
     <title>Rayane Tracker</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <meta name="theme-color" content="#08080A">
+    <!-- No webfont: the system stack is SF Pro on iPad/iPhone/Mac, so the app
+         renders identically offline and skips a render-blocking request. -->
     <style>
+        /* ─── Design tokens ───────────────────────────────────────────────
+           Everything below picks from these. Sizes, radii and spacing used to
+           be chosen per-component by eye: 12 font sizes and 8 radii on a single
+           screen, which is most of why nothing lined up. */
         :root {
-            --bg: #050505;
-            --card-bg: rgba(255, 255, 255, 0.05);
-            --border: rgba(255, 255, 255, 0.1);
-            --text: #ffffff;
-            --text-dim: #888888;
-            --green: #00FF88;
-            --red: #FF4B4B;
-            --neutral: #2C2C2E;
-            --accent: #007AFF;
+            --bg: #08080A;
+            --surface: #121215;
+            --surface-2: #1B1B20;
+
+            --border: rgba(255, 255, 255, 0.08);
+            --border-strong: rgba(255, 255, 255, 0.16);
+
+            --text: #F5F5F7;
+            --text-2: #A1A1AA;
+            --text-3: #6E6E78;
+
+            /* Apple's dark-mode system colours: saturated enough to read as a
+               signal, calm enough not to shout over everything else. */
+            --accent: #0A84FF;
+            --green: #30D158;
+            --red: #FF453A;
+            --amber: #FFD60A;
+
+            /* Type scale */
+            --fs-xs: 0.6875rem;
+            --fs-sm: 0.8125rem;
+            --fs-md: 0.9375rem;
+            --fs-lg: 1.25rem;
+            --fs-xl: 2.125rem;
+
+            /* Spacing scale */
+            --sp-1: 4px;
+            --sp-2: 8px;
+            --sp-3: 12px;
+            --sp-4: 16px;
+            --sp-5: 24px;
+            --sp-6: 32px;
+
+            /* Radii */
+            --r-sm: 8px;
+            --r-md: 12px;
+            --r-lg: 16px;
+            --r-full: 999px;
+
+            --row-h: 46px;
+            --time-col: 68px;
+            --content-max: 880px;
+            --heat-cell: 13px;
+            --heat-gap: 3px;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
             background-color: var(--bg);
             color: var(--text);
-            font-family: 'Inter', -apple-system, sans-serif;
+            /* System stack: SF Pro on iPad/iPhone/Mac. Reads native, needs no
+               network request, and looks identical offline. */
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+            font-size: var(--fs-md);
+            line-height: 1.4;
             margin: 0;
-            padding: 0;
-            padding-bottom: 80px;
+            padding: 0 0 var(--sp-6);
             min-height: 100vh;
             -webkit-tap-highlight-color: transparent;
-            margin-left: 0;
-            transition: margin-left 0.3s ease;
+            -webkit-font-smoothing: antialiased;
+            transition: margin-left 0.28s cubic-bezier(0.32, 0.72, 0, 1);
         }
 
         body.sidebar-visible {
-            margin-left: 300px;
-            padding-left: 20px;
+            margin-left: 288px;
         }
 
+        button {
+            font-family: inherit;
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        /* ─── Header ──────────────────────────────────────────────────────── */
         .header {
             position: sticky;
             top: 0;
-            background: rgba(5, 5, 5, 0.8);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
+            background: rgba(8, 8, 10, 0.72);
+            backdrop-filter: saturate(180%) blur(24px);
+            -webkit-backdrop-filter: saturate(180%) blur(24px);
             border-bottom: 1px solid var(--border);
             z-index: 100;
+            padding: var(--sp-3) var(--sp-4);
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-3);
+        }
+
+        .header-inner {
+            width: 100%;
+            max-width: var(--content-max);
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-3);
         }
 
         .header-top {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: var(--sp-3);
         }
 
         .nav-controls {
             display: flex;
             align-items: center;
-            gap: 15px;
-            margin-left: 70px;
+            gap: var(--sp-2);
+            min-width: 0;
         }
 
         .nav-btn {
-            background: var(--card-bg);
+            background: var(--surface);
             border: 1px solid var(--border);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 10px;
+            color: var(--text-2);
+            width: 34px;
+            height: 34px;
+            border-radius: var(--r-sm);
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .nav-btn:hover {
+            background: var(--surface-2);
+            color: var(--text);
         }
 
         .date-display {
-            font-size: 1.1rem;
+            font-size: var(--fs-md);
             font-weight: 600;
+            letter-spacing: -0.01em;
+            white-space: nowrap;
+            padding: 0 var(--sp-1);
+        }
+
+        .date-display .date-today {
+            color: var(--accent);
         }
 
         .score-badge {
-            font-size: 1.8rem;
-            font-weight: 800;
+            font-size: var(--fs-xl);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            flex-shrink: 0;
         }
 
-        .multipliers {
+        /* ─── Day count stepper ───────────────────────────────────────────── */
+        .day-count-controls {
             display: flex;
-            gap: 10px;
-            padding: 5px 0;
+            align-items: center;
+            gap: var(--sp-1);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 3px;
+            border-radius: var(--r-full);
+            flex-shrink: 0;
+        }
+
+        .day-count-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-2);
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: var(--fs-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .day-count-btn:hover {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .day-count-label {
+            font-size: var(--fs-xs);
+            color: var(--text-2);
+            min-width: 44px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ─── Chips: multipliers + activity presets ───────────────────────── */
+        .multipliers,
+        .controls {
+            display: flex;
+            gap: var(--sp-2);
             overflow-x: auto;
             scrollbar-width: none;
+            /* Fade the right edge so it reads as scrollable rather than cut off */
+            -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+            mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+            padding-right: var(--sp-2);
         }
 
-        .multipliers::-webkit-scrollbar {
+        .multipliers::-webkit-scrollbar,
+        .controls::-webkit-scrollbar {
             display: none;
         }
 
         .mult-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            background: var(--card-bg);
-            padding: 8px 12px;
-            border-radius: 12px;
+            gap: var(--sp-2);
+            background: var(--surface);
+            padding: var(--sp-2) var(--sp-3);
+            border-radius: var(--r-sm);
             border: 1px solid var(--border);
-            font-size: 0.85rem;
+            font-size: var(--fs-sm);
+            color: var(--text-2);
             white-space: nowrap;
             cursor: pointer;
+            flex-shrink: 0;
+            transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+        }
+
+        .mult-item input {
+            accent-color: var(--accent);
+            width: 15px;
+            height: 15px;
+            margin: 0;
         }
 
         .mult-item.active {
-            border-color: var(--accent);
-            background: rgba(0, 122, 255, 0.1);
-        }
-
-        .controls {
-            display: flex;
-            gap: 10px;
-            overflow-x: auto;
-            scrollbar-width: none;
-        }
-
-        .controls::-webkit-scrollbar {
-            display: none;
+            border-color: rgba(10, 132, 255, 0.5);
+            background: rgba(10, 132, 255, 0.12);
+            color: var(--text);
         }
 
         .preset-btn {
-            background: var(--card-bg);
-            color: var(--text-dim);
+            background: var(--surface);
+            color: var(--text-2);
             border: 1px solid var(--border);
-            padding: 8px 16px;
-            border-radius: 12px;
-            font-size: 0.9rem;
-            font-weight: 600;
+            padding: var(--sp-2) var(--sp-3);
+            border-radius: var(--r-sm);
+            font-size: var(--fs-sm);
+            font-weight: 500;
             white-space: nowrap;
             cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .preset-btn:hover {
+            border-color: var(--border-strong);
+            color: var(--text);
         }
 
         .preset-btn.active {
             background: var(--text);
+            border-color: var(--text);
             color: var(--bg);
+            font-weight: 600;
         }
 
-        /* Graph */
+        /* ─── Chart ───────────────────────────────────────────────────────── */
         .graph-section {
-            padding: 10px 0 0 0;
             border-top: 1px solid var(--border);
-            margin-top: 5px;
+            padding-top: var(--sp-3);
         }
 
         .graph-label {
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            margin-bottom: 8px;
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            gap: var(--sp-3);
+            margin-bottom: var(--sp-2);
         }
 
-        canvas#progressGraph {
-            width: 100%;
-            height: 100px;
-            /* Slightly taller for better detail */
-            display: block;
+        .graph-title {
+            font-size: var(--fs-xs);
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            white-space: nowrap;
+        }
+
+        .graph-value {
+            font-size: var(--fs-md);
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
         }
 
         .graph-window-selectors {
             display: flex;
-            gap: 10px;
-            margin-right: 10px;
+            gap: 2px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--r-sm);
+            padding: 2px;
         }
 
         .window-btn {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            color: var(--text-dim);
-            padding: 4px 10px;
-            border-radius: 8px;
-            font-size: 0.7rem;
+            background: transparent;
+            border: none;
+            color: var(--text-3);
+            padding: var(--sp-1) var(--sp-2);
+            border-radius: 6px;
+            font-size: var(--fs-xs);
+            font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .window-btn:hover {
+            color: var(--text-2);
         }
 
         .window-btn.active {
-            border-color: var(--accent);
+            background: var(--surface-2);
             color: var(--text);
-            background: rgba(0, 122, 255, 0.1);
         }
 
+        canvas#progressGraph {
+            width: 100%;
+            height: 68px;
+            display: block;
+        }
+
+        /* ─── Main layout ─────────────────────────────────────────────────── */
+        .main-container {
+            width: 100%;
+            max-width: var(--content-max);
+            margin: 0 auto;
+            padding: var(--sp-5) var(--sp-4) 0;
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-5);
+        }
+
+        /* ─── Heatmap ─────────────────────────────────────────────────────── */
+        .heatmap-container {
+            display: flex;
+            flex-direction: column;
+            /* Share the grid's left edge — a centred block beside a left-aligned
+               grid was the main thing still reading as unaligned. */
+            align-items: flex-start;
+            gap: var(--sp-1);
+        }
+
+        .heatmap-scroll {
+            max-width: 100%;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .heatmap-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .heatmap-inner {
+            display: inline-flex;
+            flex-direction: column;
+            gap: var(--heat-gap);
+            align-items: flex-start;
+        }
+
+        /* Label columns must be the same fixed track as the cells. As 1fr they
+           sized against a different container and drifted right of the month
+           they were labelling. Overflow is deliberate — the text spills past
+           its 13px column, like GitHub's contribution graph. */
+        .heatmap-labels {
+            display: grid;
+            grid-auto-columns: var(--heat-cell);
+            grid-auto-flow: column;
+            gap: var(--heat-gap);
+            font-size: var(--fs-xs);
+            color: var(--text-3);
+            margin-left: calc(26px + var(--heat-gap));
+            height: 1.1em;
+        }
+
+        .heatmap-labels span {
+            white-space: nowrap;
+            overflow: visible;
+        }
+
+        .heatmap-wrapper {
+            display: flex;
+            gap: var(--heat-gap);
+        }
+
+        .heatmap-days {
+            display: grid;
+            grid-template-rows: repeat(7, var(--heat-cell));
+            gap: var(--heat-gap);
+            font-size: var(--fs-xs);
+            color: var(--text-3);
+            width: 26px;
+            text-align: right;
+        }
+
+        .heatmap-days span {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            line-height: 1;
+        }
+
+        .heatmap-grid {
+            display: grid;
+            grid-template-rows: repeat(7, var(--heat-cell));
+            grid-auto-columns: var(--heat-cell);
+            grid-auto-flow: column;
+            gap: var(--heat-gap);
+        }
+
+        .heatmap-cell {
+            width: var(--heat-cell);
+            height: var(--heat-cell);
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.055);
+            cursor: pointer;
+            transition: transform 0.12s ease;
+        }
+
+        .heatmap-cell.today {
+            box-shadow: 0 0 0 1.5px var(--amber);
+        }
+
+        .heatmap-cell.future {
+            opacity: 0.3;
+            cursor: default;
+        }
+
+        .heatmap-cell:hover {
+            transform: scale(1.35);
+        }
+
+        /* ─── Day grid ────────────────────────────────────────────────────── */
         .grid-container {
             display: grid;
-            grid-template-columns: 80px 1fr;
+            grid-template-columns: var(--time-col) 1fr;
             width: 100%;
-            flex-grow: 1;
-            /* Allow grid to fill space */
-            /* max-width: 600px; REMOVED max-width limit */
-            margin: 0;
-            /* Remove auto margin since flex handles it */
             position: relative;
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            overflow: hidden;
+            background: var(--surface);
+        }
+
+        .grid-container.multi-day {
+            grid-template-columns: var(--time-col) repeat(var(--day-count, 1), 1fr);
         }
 
         #timeIndicator {
             position: absolute;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, #FFD700, transparent);
-            box-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+            height: 1.5px;
+            background: var(--amber);
             z-index: 50;
             pointer-events: none;
             display: none;
@@ -224,424 +497,205 @@
             position: absolute;
             left: 0;
             top: -3px;
-            width: 8px;
-            height: 8px;
-            background: #FFD700;
+            width: 7px;
+            height: 7px;
+            background: var(--amber);
             border-radius: 50%;
-            box-shadow: 0 0 10px #FFD700;
         }
 
         .time-slot {
-            padding: 20px 15px;
+            padding: 0 var(--sp-2);
             text-align: right;
-            color: var(--text-dim);
-            font-size: 0.8rem;
+            color: var(--text-3);
+            font-size: var(--fs-xs);
+            font-variant-numeric: tabular-nums;
             border-bottom: 1px solid var(--border);
-            border-right: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: flex-end;
+            height: var(--row-h);
         }
 
         .task-slot {
-            padding: 0 20px;
+            padding: 0 var(--sp-3);
             border-bottom: 1px solid var(--border);
-            border-right: 1px solid var(--border);
-            /* Separation between columns */
+            border-left: 1px solid var(--border);
             cursor: pointer;
             display: flex;
             align-items: center;
-            justify-content: flex-start;
-            font-size: 1rem;
-            font-weight: 600;
-            min-height: 60px;
-            transition: background 0.2s;
+            font-size: var(--fs-sm);
+            height: var(--row-h);
+            transition: background 0.15s ease;
             position: relative;
             overflow: hidden;
+        }
+
+        .task-slot:hover {
+            background: rgba(255, 255, 255, 0.03);
         }
 
         .task-slot-content {
             display: flex;
             align-items: center;
-            width: 100%;
-            min-height: 100%;
-            padding-right: 26px;
-            box-sizing: border-box;
+            gap: var(--sp-2);
+            min-width: 0;
+            padding-right: var(--sp-5);
+        }
+
+        .task-slot-content span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Status: a tinted wash plus a saturated edge, instead of a full-bleed
+           neon slab. The colour still reads instantly, but the score stays the
+           loudest thing on the screen. */
+        .status-neutral {
+            background: rgba(255, 255, 255, 0.045);
+            box-shadow: inset 3px 0 0 var(--text-3);
+            color: var(--text-2);
+        }
+
+        .status-completed {
+            background: rgba(48, 209, 88, 0.14);
+            box-shadow: inset 3px 0 0 var(--green);
+            color: var(--text);
+        }
+
+        .status-completed .task-slot-content span {
+            font-weight: 600;
+        }
+
+        .status-failed {
+            background: rgba(255, 69, 58, 0.13);
+            box-shadow: inset 3px 0 0 var(--red);
+            color: var(--text);
+        }
+
+        .status-failed .task-slot-content span {
+            text-decoration: line-through;
+            text-decoration-color: rgba(255, 69, 58, 0.6);
+            color: var(--text-2);
+        }
+
+        .task-slot.today-column {
+            background: rgba(255, 214, 10, 0.035);
         }
 
         .task-slot-delete {
             position: absolute;
-            top: 6px;
-            right: 6px;
-            width: 18px;
-            height: 18px;
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            border-radius: 999px;
-            background: rgba(5, 5, 5, 0.35);
-            color: inherit;
+            top: 50%;
+            right: var(--sp-2);
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-2);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.7rem;
-            line-height: 1;
             cursor: pointer;
-            opacity: 0.78;
-            transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+            padding: 0;
+            transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
         }
 
         .task-slot-delete:hover {
-            opacity: 1;
-            background: rgba(255, 75, 75, 0.18);
-            border-color: rgba(255, 75, 75, 0.4);
-        }
-
-        .status-neutral {
-            background: rgba(255, 255, 255, 0.03);
-            color: var(--text);
-        }
-
-        .status-completed {
-            background: var(--green);
-            color: #004422;
-        }
-
-        .status-failed {
             background: var(--red);
-            color: white;
+            color: #fff;
         }
 
-        .task-slot.today-column {
-            border-left: 2px solid rgba(255, 215, 0, 0.3);
-            border-right: 2px solid rgba(255, 215, 0, 0.3);
+        /* 24 permanently visible ✕ circles was a lot of noise. Reveal on hover
+           where there's a pointer; keep them faint but reachable on touch. */
+        @media (hover: hover) {
+            .task-slot-delete {
+                opacity: 0;
+            }
+
+            .task-slot:hover .task-slot-delete {
+                opacity: 1;
+            }
         }
 
+        @media (hover: none) {
+            .task-slot-delete {
+                opacity: 0.35;
+            }
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0.97); }
+            60% { transform: scale(1.01); }
+            100% { transform: scale(1); }
+        }
+
+        .pop-anim {
+            animation: pop 0.18s ease-out;
+        }
+
+        /* ─── Footer ──────────────────────────────────────────────────────── */
         .footer {
-            padding: 40px 20px;
-            text-align: center;
+            max-width: var(--content-max);
+            margin: 0 auto;
+            padding: var(--sp-6) var(--sp-4);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--sp-3);
+        }
+
+        .footer-actions {
+            display: flex;
+            gap: var(--sp-2);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .app-version {
+            color: var(--text-3);
+            font-size: var(--fs-xs);
         }
 
         .reset-btn {
             background: transparent;
+            color: var(--text-2);
+            border: 1px solid var(--border);
+            padding: var(--sp-2) var(--sp-4);
+            border-radius: var(--r-sm);
+            font-size: var(--fs-sm);
+            cursor: pointer;
+            transition: border-color 0.15s ease, color 0.15s ease;
+        }
+
+        .reset-btn:hover {
+            border-color: var(--border-strong);
+            color: var(--text);
+        }
+
+        .reset-btn.danger:hover {
+            border-color: var(--red);
             color: var(--red);
-            border: 1px solid rgba(255, 75, 75, 0.2);
-            padding: 12px 24px;
-            border-radius: 12px;
-            cursor: pointer;
         }
 
-        @keyframes pop {
-            0% {
-                transform: scale(0.95);
-            }
-
-            50% {
-                transform: scale(1.02);
-            }
-
-            100% {
-                transform: scale(1);
-            }
-        }
-
-        .pop-anim {
-            animation: pop 0.2s forwards;
-        }
-
-        /* Layout */
-        .main-container {
-            display: flex;
-            max-width: 1200px;
-            /* Increased from 900px */
-            /* width: 100%; ensure it can be wide */
-            margin: 0 auto;
-            gap: 20px;
-            padding: 20px;
-            justify-content: center;
-        }
-
-        /* Heatmap */
-        .heatmap-container {
-            width: max-content;
-            /* Only take needed space */
-            min-width: 160px;
-            flex-shrink: 0;
-            position: sticky;
-            top: 200px;
-        }
-
-        .heatmap-grid {
-            display: grid;
-            grid-template-columns: repeat(16, 1fr);
-            /* 16 weeks to cover ~4 months */
-            grid-template-rows: repeat(7, 1fr);
-            /* 7 days */
-            grid-auto-flow: column;
-            /* Fill columns first (weeks) */
-            gap: 2px;
-        }
-
-        .heatmap-cell {
-            width: 10px;
-            height: 10px;
-            border-radius: 2px;
-            background: rgba(255, 255, 255, 0.05);
-            cursor: pointer;
-        }
-
-        .heatmap-cell.today {
-            box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.7);
-            z-index: 5;
-        }
-
-        .heatmap-cell.future {
-            opacity: 0.35;
-            cursor: default;
-        }
-
-        .heatmap-cell:hover {
-            transform: scale(1.5);
-            z-index: 10;
-            box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
-        }
-
-        .heatmap-labels {
-            display: grid;
-            grid-template-columns: repeat(16, 1fr);
-            /* Match heatmap grid 16 weeks */
-            font-size: 0.6rem;
-            color: var(--text-dim);
-            margin-bottom: 5px;
-            gap: 2px;
-        }
-
-        .heatmap-days {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            font-size: 0.6rem;
-            color: var(--text-dim);
-            margin-right: 5px;
-            /* Height = 7 cells * (10px + 2px gap) = ~84px */
-        }
-
-        .heatmap-wrapper {
-            display: flex;
-        }
-
-        /* Multi-day controls */
-        .day-count-controls {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            margin-left: 15px;
-            /* Separate from date nav */
-            background: rgba(255, 255, 255, 0.05);
-            /* Subtle background/pill */
-            padding: 4px 8px;
-            border-radius: 20px;
-        }
-
-        .day-count-btn {
-            background: rgba(255, 255, 255, 0.1);
-            border: none;
-            color: var(--text);
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s;
-        }
-
-        .day-count-btn:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .day-count-label {
-            font-size: 0.85rem;
-            color: var(--text);
-            min-width: 45px;
-            text-align: center;
-        }
-
-        /* Dynamic multi-day grid */
-        .grid-container.multi-day {
-            grid-template-columns: 60px repeat(var(--day-count, 1), 1fr);
-        }
-
-        /* Mobile Optimizations */
-        @media (max-width: 768px) {
-            body {
-                padding-bottom: 40px;
-            }
-
-            .header {
-                padding: 12px;
-                gap: 10px;
-            }
-
-            .header-top {
-                flex-wrap: wrap;
-                gap: 10px;
-            }
-
-            .nav-controls {
-                gap: 8px;
-                flex-wrap: wrap;
-            }
-
-            .nav-btn {
-                padding: 10px 14px;
-                font-size: 1rem;
-                min-width: 44px;
-                min-height: 44px;
-            }
-
-            .date-display {
-                font-size: 0.95rem;
-                min-width: 120px;
-            }
-
-            .score-badge {
-                font-size: 1.5rem;
-                width: 100%;
-                text-align: center;
-                order: -1;
-            }
-
-            .day-count-controls {
-                margin-left: 0;
-                margin-top: 5px;
-            }
-
-            .day-count-btn {
-                width: 32px;
-                height: 32px;
-                font-size: 1.2rem;
-            }
-
-            .multipliers {
-                gap: 6px;
-            }
-
-            .mult-item {
-                font-size: 0.75rem;
-                padding: 6px 10px;
-            }
-
-            .controls {
-                gap: 6px;
-            }
-
-            .preset-btn {
-                padding: 10px 14px;
-                font-size: 0.85rem;
-                min-height: 40px;
-            }
-
-            .graph-label {
-                flex-direction: column;
-                gap: 8px;
-                align-items: flex-start;
-            }
-
-            .graph-window-selectors {
-                margin-right: 0;
-                gap: 6px;
-                flex-wrap: wrap;
-            }
-
-            .window-btn {
-                padding: 6px 12px;
-                font-size: 0.75rem;
-                min-height: 32px;
-            }
-
-            canvas#progressGraph {
-                height: 80px;
-            }
-
-            .main-container {
-                flex-direction: column;
-                padding: 0;
-                gap: 0;
-                max-width: 100%;
-            }
-
-            /* HIDE HEATMAP ON MOBILE - Takes up too much space */
-            .heatmap-container {
-                display: none;
-            }
-
-            .grid-container {
-                grid-template-columns: 55px 1fr;
-                order: 0;
-                width: 100%;
-                max-width: 100%;
-            }
-
-            .grid-container.multi-day {
-                grid-template-columns: 45px repeat(var(--day-count, 1), 1fr);
-            }
-
-            .time-slot {
-                padding: 15px 5px;
-                font-size: 0.7rem;
-            }
-
-            .task-slot {
-                padding: 0 8px;
-                font-size: 0.9rem;
-                min-height: 50px;
-            }
-
-            .task-slot-content {
-                padding-right: 22px;
-            }
-
-            .task-slot-delete {
-                top: 4px;
-                right: 4px;
-                width: 16px;
-                height: 16px;
-                font-size: 0.65rem;
-            }
-
-            .footer {
-                padding: 20px 10px;
-            }
-
-            .reset-btn {
-                padding: 12px 16px;
-                font-size: 0.85rem;
-                display: block;
-                width: 100%;
-                margin: 5px 0 !important;
-            }
-        }
-
-        /* Task Management Sidebar */
+        /* ─── Sidebar ─────────────────────────────────────────────────────── */
         .task-sidebar {
             position: fixed;
-            left: -300px;
+            left: -288px;
             top: 0;
-            width: 300px;
-            height: 100vh;
-            background: var(--card-bg);
+            width: 288px;
+            height: 100%;
+            background: var(--surface);
             border-right: 1px solid var(--border);
-            padding: 20px;
+            padding: var(--sp-4);
             overflow-y: auto;
             z-index: 200;
             display: flex;
             flex-direction: column;
-            gap: 15px;
-            transition: left 0.3s ease;
+            gap: var(--sp-3);
+            transition: left 0.28s cubic-bezier(0.32, 0.72, 0, 1);
             visibility: hidden;
-            box-sizing: border-box;
         }
 
         .task-sidebar.visible {
@@ -649,187 +703,183 @@
             visibility: visible;
         }
 
-        .task-sidebar-close {
-            position: fixed;
-            left: 300px;
-            top: 20px;
-            width: 30px;
-            height: 40px;
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 0 10px 10px 0;
-            color: var(--text);
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-            z-index: 201;
-            opacity: 0;
-            pointer-events: none;
-            border-left: none;
-        }
-
-        body.sidebar-visible .task-sidebar-close {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .task-sidebar-close:hover {
-            background: rgba(0, 122, 255, 0.1);
-        }
-
         .task-sidebar-header {
-            font-weight: 600;
-            font-size: 0.95rem;
-            color: var(--text);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            font-size: var(--fs-md);
+            font-weight: 600;
+        }
+
+        .task-sidebar-close {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--r-sm);
+            color: var(--text-2);
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+            transition: color 0.15s ease, background 0.15s ease;
+        }
+
+        .task-sidebar-close:hover {
+            color: var(--text);
+            background: var(--border);
         }
 
         .task-sidebar-toggle {
-            display: block;
-            background: var(--card-bg);
+            background: var(--surface);
             border: 1px solid var(--border);
-            color: var(--text);
-            padding: 8px 12px;
-            border-radius: 10px;
+            color: var(--text-2);
+            width: 34px;
+            height: 34px;
+            border-radius: var(--r-sm);
             cursor: pointer;
-            font-size: 1rem;
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            z-index: 300;
-            pointer-events: auto;
-            transition: opacity 0.3s ease;
-            opacity: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            padding: 0;
+            transition: background 0.15s ease, color 0.15s ease;
         }
 
-        body.sidebar-visible .task-sidebar-toggle {
+        .task-sidebar-toggle:hover {
+            background: var(--surface-2);
+            color: var(--text);
+        }
+
+        .task-scrim {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 150;
             opacity: 0;
             pointer-events: none;
+            transition: opacity 0.28s ease;
         }
 
-        @media (max-width: 768px) {
-            .task-sidebar.mobile-hidden {
-                display: none;
-            }
+        body.sidebar-visible .task-scrim {
+            opacity: 1;
+            pointer-events: auto;
         }
 
         .task-add-section {
             display: flex;
-            gap: 8px;
+            gap: var(--sp-2);
         }
 
         .task-add-input {
             flex: 1;
+            min-width: 0;
             background: var(--bg);
             border: 1px solid var(--border);
             color: var(--text);
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 0.85rem;
+            padding: var(--sp-2) var(--sp-3);
+            border-radius: var(--r-sm);
+            font-size: var(--fs-sm);
             font-family: inherit;
         }
 
         .task-add-input::placeholder {
-            color: var(--text-dim);
+            color: var(--text-3);
+        }
+
+        .task-add-input:focus {
+            outline: none;
+            border-color: var(--accent);
         }
 
         .task-add-btn {
             background: var(--accent);
             border: none;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 8px;
+            color: #fff;
+            padding: var(--sp-2) var(--sp-3);
+            border-radius: var(--r-sm);
             cursor: pointer;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: var(--fs-sm);
         }
 
         .task-list {
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            flex: 1;
+            gap: var(--sp-1);
         }
 
         .task-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px;
+            gap: var(--sp-2);
+            padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
             background: var(--bg);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.9rem;
-            color: var(--text);
-            transition: all 0.2s;
+            border-radius: var(--r-sm);
+            font-size: var(--fs-sm);
         }
 
         .task-item:hover {
-            border-color: var(--accent);
-            background: rgba(0, 122, 255, 0.05);
+            border-color: var(--border-strong);
         }
 
         .task-item-name {
             flex: 1;
+            min-width: 0;
             cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .task-item-name.protected {
             cursor: default;
-            opacity: 0.7;
+            color: var(--text-3);
         }
 
         .task-item-actions {
             display: flex;
-            gap: 6px;
+            gap: var(--sp-1);
+            flex-shrink: 0;
         }
 
         .task-item-btn {
             background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-dim);
-            padding: 4px 8px;
-            border-radius: 4px;
+            border: none;
+            color: var(--text-3);
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
-            font-size: 0.75rem;
-            transition: all 0.2s;
-        }
-
-        .task-item-btn:hover {
-            border-color: var(--accent);
-            color: var(--text);
-        }
-
-        .task-item-btn.delete {
-            border-color: rgba(255, 75, 75, 0.3);
-            color: var(--red);
+            padding: 0;
+            transition: background 0.15s ease, color 0.15s ease;
         }
 
         .task-item-btn.delete:hover {
-            border-color: var(--red);
-            background: rgba(255, 75, 75, 0.1);
+            background: rgba(255, 69, 58, 0.15);
+            color: var(--red);
         }
 
-        .task-item-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        .task-hint {
+            font-size: var(--fs-xs);
+            color: var(--text-3);
+            margin-top: auto;
+            padding-top: var(--sp-3);
         }
 
         .task-error-msg {
-            background: rgba(255, 75, 75, 0.1);
-            border: 1px solid rgba(255, 75, 75, 0.3);
+            background: rgba(255, 69, 58, 0.12);
+            border: 1px solid rgba(255, 69, 58, 0.3);
             color: var(--red);
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 0.85rem;
+            padding: var(--sp-2) var(--sp-3);
+            border-radius: var(--r-sm);
+            font-size: var(--fs-sm);
             display: none;
         }
 
@@ -837,80 +887,95 @@
             display: block;
         }
 
-        /* Extra small phones */
-        @media (max-width: 375px) {
-            .header {
-                padding: 10px;
-            }
-
-            .date-display {
-                font-size: 0.85rem;
-                min-width: 100px;
-            }
-
-            .score-badge {
-                font-size: 1.3rem;
-            }
-
-            .preset-btn {
-                padding: 8px 12px;
-                font-size: 0.8rem;
-            }
-
-            .grid-container {
-                grid-template-columns: 50px 1fr;
-            }
-
-            .time-slot {
-                padding: 12px 5px;
-                font-size: 0.65rem;
-            }
-
-            .task-slot {
-                padding: 0 8px;
-                font-size: 0.85rem;
-                min-height: 45px;
-            }
-
-            .task-slot-delete {
-                width: 15px;
-                height: 15px;
+        /* ─── Tablet (iPad) ───────────────────────────────────────────────── */
+        @media (max-width: 1180px) {
+            :root {
+                --content-max: 760px;
             }
         }
 
-        /* Mobile Sidebar */
+        /* ─── Phone ───────────────────────────────────────────────────────── */
         @media (max-width: 768px) {
-            /* On desktop the sidebar pushes the page across. On a 390px phone that
-               same 300px push shoved the whole app off screen, so overlay instead. */
+            :root {
+                --row-h: 44px;
+                --time-col: 56px;
+                --fs-xl: 1.75rem;
+            }
+
+            .header {
+                padding: var(--sp-2) var(--sp-3);
+                gap: var(--sp-2);
+            }
+
+            .header-inner {
+                gap: var(--sp-2);
+            }
+
+            .main-container {
+                padding: var(--sp-4) var(--sp-2) 0;
+                gap: var(--sp-4);
+            }
+
+            .grid-container {
+                border-radius: var(--r-md);
+            }
+
+            :root {
+                --heat-cell: 11px;
+            }
+
+            .date-display {
+                font-size: var(--fs-sm);
+            }
+
+            .day-count-label {
+                min-width: 38px;
+            }
+
+            /* At 390px the stepper collided with the score badge. Let it wrap
+               to its own line rather than hiding it, so a multi-day view set on
+               the iPad can still be dialled back on the phone. */
+            .header-top {
+                flex-wrap: wrap;
+                row-gap: var(--sp-2);
+            }
+
+            .nav-controls {
+                flex-wrap: wrap;
+                row-gap: var(--sp-2);
+                flex: 1;
+            }
+
+            /* Pushing the body 288px sideways moved the app off a 390px screen. */
             body.sidebar-visible {
-                overflow: hidden;
                 margin-left: 0;
-                padding-left: 0;
+                overflow: hidden;
             }
 
             .task-sidebar {
-                width: 82vw;
-                max-width: 300px;
-                left: -82vw;
-                padding-top: 64px;
-                background: #101012;
+                width: 84vw;
+                max-width: 288px;
+                left: -84vw;
             }
 
             .task-sidebar.visible {
                 left: 0;
             }
 
-            /* Anchor the close button inside the panel rather than at a fixed
-               300px, which landed outside a narrower sidebar. */
-            .task-sidebar-close {
-                position: absolute;
-                left: auto;
-                right: 12px;
-                top: 12px;
-                width: 40px;
-                height: 40px;
-                border-radius: 10px;
-                border: 1px solid var(--border);
+            .footer {
+                padding: var(--sp-5) var(--sp-3);
+            }
+
+            .reset-btn {
+                flex: 1;
+                min-width: 140px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
             }
         }
     </style>
@@ -920,31 +985,45 @@
 
     <!-- Task Management Sidebar -->
     <div class="task-sidebar" id="taskSidebar">
-        <button class="task-sidebar-close" onclick="closeMobileSidebar()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 19l-7-7 7-7"></path></svg></button>
+        <div class="task-sidebar-header">
+            <span>Activities</span>
+            <button class="task-sidebar-close" onclick="closeMobileSidebar()" aria-label="Close activities">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+            </button>
+        </div>
         <div class="task-add-section">
-            <input type="text" class="task-add-input" id="taskAddInput" placeholder="New task...">
+            <input type="text" class="task-add-input" id="taskAddInput" placeholder="New activity">
             <button class="task-add-btn" onclick="addTaskFromInput()">Add</button>
         </div>
         <div class="task-error-msg" id="taskErrorMsg"></div>
         <div class="task-list" id="taskList"></div>
+        <div class="task-hint">Double-tap a name to rename it. Renaming updates your history too.</div>
     </div>
 
-    <button class="task-sidebar-toggle" id="taskSidebarToggle" onclick="toggleMobileSidebar()">☰</button>
+    <div class="task-scrim" onclick="closeMobileSidebar()"></div>
 
     <div class="header">
-        <div class="header-top">
-            <div class="nav-controls">
-                <button class="nav-btn" onclick="changeDate(-1)">←</button>
-                <div class="date-display" id="currentDate">Today</div>
-                <button class="nav-btn" onclick="changeDate(1)">→</button>
-                <div class="day-count-controls">
-                    <button class="day-count-btn" onclick="changeDayCount(-1)">−</button>
-                    <span class="day-count-label" id="dayCountLabel">1 day</span>
-                    <button class="day-count-btn" onclick="changeDayCount(1)">+</button>
+        <div class="header-inner">
+            <div class="header-top">
+                <div class="nav-controls">
+                    <button class="task-sidebar-toggle" id="taskSidebarToggle" onclick="toggleMobileSidebar()" aria-label="Activities">
+                        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+                    </button>
+                    <button class="nav-btn" onclick="changeDate(-1)" aria-label="Previous day">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>
+                    </button>
+                    <div class="date-display" id="currentDate">Today</div>
+                    <button class="nav-btn" onclick="changeDate(1)" aria-label="Next day">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>
+                    </button>
+                    <div class="day-count-controls">
+                        <button class="day-count-btn" onclick="changeDayCount(-1)" aria-label="Fewer days">−</button>
+                        <span class="day-count-label" id="dayCountLabel">1 day</span>
+                        <button class="day-count-btn" onclick="changeDayCount(1)" aria-label="More days">+</button>
+                    </div>
                 </div>
+                <div class="score-badge" id="dailyScore">0%</div>
             </div>
-            <div class="score-badge" id="dailyScore">0%</div>
-        </div>
 
         <div class="multipliers" id="multiplierContainer">
             <div class="mult-item" id="itemMomentum">
@@ -960,40 +1039,43 @@
             </label>
         </div>
 
-        <div class="controls" id="presetContainer"></div>
+            <div class="controls" id="presetContainer"></div>
 
-        <div class="graph-section">
-            <div class="graph-label">
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <span>Cumulative Average (Since Dec 21)</span>
+            <div class="graph-section">
+                <div class="graph-label">
+                    <span class="graph-title">7-day average</span>
                     <div class="graph-window-selectors" id="graphWindowSelectors">
-                        <button class="window-btn" data-window="7D" title="This week">Week</button>
-                        <button class="window-btn active" data-window="30D" title="This month">Month</button>
-                        <button class="window-btn" data-window="90D" title="This quarter">Quarter</button>
-                        <button class="window-btn" data-window="1Y" title="This year">Year</button>
-                        <button class="window-btn" data-window="All" title="All data">All</button>
+                        <button class="window-btn" data-window="7D">7D</button>
+                        <button class="window-btn active" data-window="30D">30D</button>
+                        <button class="window-btn" data-window="90D">90D</button>
+                        <button class="window-btn" data-window="1Y">1Y</button>
+                        <button class="window-btn" data-window="All">All</button>
                     </div>
+                    <span class="graph-value" id="currentAvg">0%</span>
                 </div>
-                <span id="currentAvg">0%</span>
+                <canvas id="progressGraph"></canvas>
             </div>
-            <canvas id="progressGraph"></canvas>
         </div>
     </div>
 
     <div class="main-container">
         <div class="heatmap-container">
-            <div class="heatmap-labels" id="heatmapMonthLabels"></div>
-            <div class="heatmap-wrapper">
-                <div class="heatmap-days">
-                    <span>Mon</span>
-                    <span></span>
-                    <span></span>
-                    <span>Thu</span>
-                    <span></span>
-                    <span></span>
-                    <span>Sun</span>
+            <div class="heatmap-scroll">
+                <div class="heatmap-inner">
+                    <div class="heatmap-labels" id="heatmapMonthLabels"></div>
+                    <div class="heatmap-wrapper">
+                        <div class="heatmap-days">
+                            <span>Mon</span>
+                            <span></span>
+                            <span>Wed</span>
+                            <span></span>
+                            <span>Fri</span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <div class="heatmap-grid" id="heatmapGrid"></div>
+                    </div>
                 </div>
-                <div class="heatmap-grid" id="heatmapGrid"></div>
             </div>
         </div>
 
@@ -1003,17 +1085,16 @@
     </div>
 
     <div class="footer">
-        <div style="color: var(--text-dim); font-size: 0.75rem; margin-bottom: 15px;">
-            v<span id="appVersion">1.0.6</span>
+        <div class="footer-actions">
+            <button class="reset-btn" onclick="clearDay()">Clear this day</button>
+            <button class="reset-btn danger" onclick="clearAllData()">Reset everything</button>
         </div>
-        <button class="reset-btn" onclick="clearDay()">Clear Data for this Day</button>
-        <button class="reset-btn" style="margin-left: 10px; border-color: var(--red); color:var(--red);"
-            onclick="clearAllData()">Reset Everything</button>
+        <div class="app-version">v<span id="appVersion">1.0.7</span></div>
     </div>
 
     <script>
-        const APP_VERSION = '1.0.6';
-        const DEFAULT_ACTIVITIES = ["Sleep", "Code", "Work", "Read", "Workout", "Stretch", "Looksmax", "Pray", "Netflix"];
+        const APP_VERSION = '1.0.7';
+        const DEFAULT_ACTIVITIES = ["Sleep", "Code", "Work", "Read", "Workout", "Stretch", "Grooming", "Pray", "Netflix"];
         const START_HOUR = 5;
         const TOTAL_HOURS = 24;
         const SCHEDULE = { 18: "Sleep", 19: "Sleep", 20: "Sleep", 21: "Sleep", 22: "Sleep", 23: "Sleep" };
@@ -1022,7 +1103,6 @@
         const WEIGHT_MULTIPLIER = 1.3;
         const HEATMAP_WEEKS = 16; // ~4 months of history, ending with the current week
 
-        const MA_BASE_DATE = new Date(2025, 11, 21); // Dec 21, 2025
         let currentViewDate = new Date();
         currentViewDate.setHours(0, 0, 0, 0);
 
@@ -1225,15 +1305,11 @@
                 if (!task.protected) {
                     const deleteBtn = document.createElement('button');
                     deleteBtn.className = 'task-item-btn delete';
-                    deleteBtn.innerText = '✕';
+                    deleteBtn.type = 'button';
+                    deleteBtn.setAttribute('aria-label', `Delete ${task.name}`);
+                    deleteBtn.appendChild(icon('M18 6L6 18M6 6l12 12', 13));
                     deleteBtn.onclick = () => deleteTask(task.name);
                     actionsEl.appendChild(deleteBtn);
-                } else {
-                    const lockEl = document.createElement('span');
-                    lockEl.innerText = '🔒';
-                    lockEl.style.fontSize = '0.8rem';
-                    lockEl.title = 'Protected task';
-                    actionsEl.appendChild(lockEl);
                 }
 
                 item.appendChild(actionsEl);
@@ -1363,7 +1439,16 @@
         function updateDisplay() {
             const key = getDateKey(currentViewDate);
             const formatted = currentViewDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-            dateEl.innerText = (key === getDateKey(new Date())) ? `Today — ${formatted}` : formatted;
+            dateEl.innerHTML = '';
+            if (key === getDateKey(new Date())) {
+                const today = document.createElement('span');
+                today.className = 'date-today';
+                today.innerText = 'Today';
+                dateEl.appendChild(today);
+                dateEl.appendChild(document.createTextNode(` · ${formatted}`));
+            } else {
+                dateEl.appendChild(document.createTextNode(formatted));
+            }
 
             const allData = readStore(DATA_KEY);
             const allStats = readStore(STATS_KEY);
@@ -1422,231 +1507,222 @@
             }
 
             const hoursSinceStart = (now.getHours() + now.getMinutes() / 60 - START_HOUR + 24) % 24;
-            const totalHeight = gridEl.scrollHeight;
-            const rowHeight = totalHeight / TOTAL_HOURS;
+            const rowHeight = gridEl.scrollHeight / TOTAL_HOURS;
             const topOffset = hoursSinceStart * rowHeight;
 
-            // Calculate horizontal position
-            // Grid: 80px time col + (dayCount * 1fr) for days
-            // We need to match the specific 1fr column width
-            // Since we can't easily get 1fr in px, we can use calc() or percentage if the container is fixed.
-            // Better: offsetLeft of a cell in that column?
-            // Let's assume uniform width: (100% - 80px) / dayCount
+            // Measure the time column rather than assuming a hardcoded width —
+            // it differs per breakpoint and used to be wrong on small screens.
+            const timeCol = gridEl.querySelector('.time-slot');
+            const timeW = timeCol ? timeCol.getBoundingClientRect().width : 68;
 
             indicator.style.display = 'block';
             indicator.style.top = `${topOffset}px`;
-            indicator.style.left = `calc(80px + ((100% - 80px) / ${dayCount}) * ${todayIndex})`;
-            indicator.style.width = `calc((100% - 80px) / ${dayCount})`;
+            indicator.style.left = `calc(${timeW}px + ((100% - ${timeW}px) / ${dayCount}) * ${todayIndex})`;
+            indicator.style.width = `calc((100% - ${timeW}px) / ${dayCount})`;
+        }
+
+        // How many days each window plots, counting back from today. These are
+        // genuine trailing ranges now — the labels used to say 7D/30D/90D but
+        // select this calendar week/month/quarter, so on the 1st of a month
+        // "30D" drew a single point.
+        const GRAPH_WINDOWS = { '7D': 7, '30D': 30, '90D': 90, '1Y': 365 };
+        const ROLLING_DAYS = 7;
+
+        // Earliest day that has any real activity. Replaces a hardcoded
+        // Dec 21 2025 constant, which was arbitrary and wrong for anyone whose
+        // history starts anywhere else.
+        function getFirstDataDate(allData, allStats) {
+            const keys = new Set([...Object.keys(allData), ...Object.keys(allStats)]);
+            let earliest = null;
+
+            keys.forEach(k => {
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(k)) return;
+                if (!hasDayActivity(k, allData, allStats)) return;
+                if (!earliest || k < earliest) earliest = k;
+            });
+
+            return earliest ? parseDateKey(earliest) : null;
+        }
+
+        // Trailing ROLLING_DAYS-day mean of the days that have activity. A
+        // cumulative-since-day-one average cannot move once you have a few
+        // months of history — this one responds to the week you actually had.
+        function buildSeries(allData, allStats, from, to) {
+            const series = [];
+            const recent = [];
+            const cursor = new Date(from);
+
+            while (cursor <= to) {
+                const k = getDateKey(cursor);
+                const active = hasDayActivity(k, allData, allStats);
+                const score = active ? getDayScore(k, allData, allStats) : null;
+
+                if (active) {
+                    recent.push(score);
+                    if (recent.length > ROLLING_DAYS) recent.shift();
+                }
+
+                series.push({
+                    date: new Date(cursor),
+                    score,
+                    rolling: recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : null,
+                });
+
+                cursor.setDate(cursor.getDate() + 1);
+            }
+
+            return series;
         }
 
         function renderProgressGraph(allData, allStats) {
             const canvas = document.getElementById('progressGraph');
             if (!canvas) return;
+
             const ctx = canvas.getContext('2d');
             const dpr = window.devicePixelRatio || 1;
             const rect = canvas.getBoundingClientRect();
+            if (!rect.width) return;
+
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
-            ctx.scale(dpr, dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-            // Graph Settings
             const w = rect.width;
             const h = rect.height;
-            const paddingX = 15;
-            const paddingY = 10;
-            const chartW = w - paddingX * 2;
-            const chartH = h - paddingY * 2;
-
-            // Define Time Window
-            const now = new Date(currentViewDate); // Use the date being viewed as the anchor
-            now.setHours(0, 0, 0, 0);
-            let chartStart = new Date(now);
-            let chartEnd = new Date(now);
-
-            const allKeys = Object.keys(allData)
-                .filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k))
-                .sort();
-
-            if (graphWindow === '7D') {
-                // This Week (Mon-Sun)
-                const day = now.getDay();
-                const diffToMon = day === 0 ? 6 : day - 1;
-                chartStart.setDate(now.getDate() - diffToMon);
-                chartEnd = new Date(chartStart);
-                chartEnd.setDate(chartStart.getDate() + 6);
-            } else if (graphWindow === '30D') {
-                // This Month (1st-Last)
-                chartStart.setDate(1);
-                chartEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-            } else if (graphWindow === '90D') {
-                // This Quarter
-                const q = Math.floor(now.getMonth() / 3);
-                chartStart.setMonth(q * 3, 1);
-                chartEnd = new Date(now.getFullYear(), (q + 1) * 3, 0);
-            } else if (graphWindow === '1Y') {
-                // This Year (Jan-Dec)
-                chartStart.setMonth(0, 1);
-                chartEnd.setFullYear(now.getFullYear(), 11, 31);
-            } else { // 'All'
-                if (allKeys.length > 0) chartStart = parseDateKey(allKeys[0]);
-                else chartStart.setMonth(0, 1);
-
-                // End of current year, OR extend if data goes further
-                const endOfYear = new Date(now.getFullYear(), 11, 31);
-                chartEnd = endOfYear;
-
-                if (allKeys.length > 0) {
-                    const lastDataDate = parseDateKey(allKeys[allKeys.length - 1]);
-                    if (lastDataDate > chartEnd) {
-                        chartEnd = lastDataDate;
-                        // Add a buffer of a few days
-                        chartEnd.setDate(chartEnd.getDate() + 7);
-                    }
-                }
-            }
-            chartStart.setHours(0, 0, 0, 0);
-            chartEnd.setHours(0, 0, 0, 0);
-
-            const daysToShow = Math.floor((chartEnd - chartStart) / (1000 * 60 * 60 * 24)) + 1;
-
-            // Moving average is STILL cumulative from the very beginning of data (Dec 21)
-            // But we only PLOT points within the window.
-            const points = [];
-            let cumulativeSum = 0;
-            let cumulativeCount = 0;
-            let latestAvg = 0;
-
-            // We need to calculate cumulative avg from the EARLIEST data point (Dec 21) up to the LATEST data point
-            const absoluteStart = new Date(MA_BASE_DATE);
-            absoluteStart.setHours(0, 0, 0, 0);
-
-            // Find the latest date key that has data
-            let latestDataKey = getDateKey(now);
-            if (allKeys.length > 0) {
-                const maxKey = allKeys[allKeys.length - 1];
-                if (maxKey > latestDataKey) latestDataKey = maxKey;
-            }
-            const calculationEnd = parseDateKey(latestDataKey);
-            calculationEnd.setHours(0, 0, 0, 0);
-
-            let targetDate = new Date(absoluteStart);
-            // Loop until we cover the end date (inclusive)
-            // Using a loop prevents DST math errors (23h days)
-            while (targetDate <= calculationEnd) {
-                const k = getDateKey(targetDate);
-
-                if (hasDayActivity(k, allData, allStats)) {
-                    cumulativeSum += getDayScore(k, allData, allStats);
-                    cumulativeCount++;
-                    latestAvg = cumulativeSum / cumulativeCount;
-
-                    if (targetDate >= chartStart && targetDate <= chartEnd) {
-                        // Round, not floor: a DST boundary makes this 23.0 or 25.0 hours.
-                        const daysOffset = Math.round((targetDate - chartStart) / (1000 * 60 * 60 * 24));
-                        points.push({ x: daysOffset, y: latestAvg });
-                    }
-                }
-
-                targetDate.setDate(targetDate.getDate() + 1);
-            }
-
-            document.getElementById('currentAvg').innerText = Math.round(latestAvg * 100) + "%";
+            const padTop = 6;
+            const padBottom = 14;
+            const chartH = h - padTop - padBottom;
 
             ctx.clearRect(0, 0, w, h);
 
-            // Grid lines (y-axis)
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-            ctx.lineWidth = 1;
-            for (let i = 0; i <= 4; i++) {
-                const y = paddingY + (chartH * (i / 4));
-                ctx.beginPath();
-                ctx.moveTo(paddingX, y);
-                ctx.lineTo(w - paddingX, y);
-                ctx.stroke();
+            const avgEl = document.getElementById('currentAvg');
+            const firstData = getFirstDataDate(allData, allStats);
+
+            if (!firstData) {
+                avgEl.innerText = '—';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+                ctx.font = '12px -apple-system, system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('Log an hour to start tracking', w / 2, h / 2);
+                return;
             }
 
-            const xDivisor = Math.max(daysToShow - 1, 1);
+            // Anchor on the day being viewed so scrolling back in time shows the
+            // chart as it stood then.
+            const anchor = new Date(currentViewDate);
+            anchor.setHours(0, 0, 0, 0);
 
-            // Labels
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-            ctx.font = '10px Inter';
-            ctx.textAlign = 'center';
-            const months = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
-            let lastLabelMonth = -1;
+            const span = GRAPH_WINDOWS[graphWindow];
+            let chartStart;
+            if (span) {
+                chartStart = new Date(anchor);
+                chartStart.setDate(chartStart.getDate() - (span - 1));
+                if (chartStart < firstData) chartStart = new Date(firstData);
+            } else {
+                chartStart = new Date(firstData);
+            }
 
-            for (let i = 0; i < daysToShow; i++) {
-                const d = new Date(chartStart);
-                d.setDate(d.getDate() + i);
-                const x = paddingX + (i * (chartW / xDivisor));
-                let labelText = "";
+            // The rolling mean needs the days before the window to be correct at
+            // its left edge, so build from the start of history and slice.
+            const full = buildSeries(allData, allStats, firstData, anchor);
+            const series = full.filter(p => p.date >= chartStart);
+            if (!series.length) return;
 
-                if (graphWindow === '7D') {
-                    const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-                    labelText = days[i];
-                } else if (graphWindow === '30D') {
-                    if (i % 5 === 0 || i === daysToShow - 1) labelText = d.getDate();
-                } else {
-                    if (d.getMonth() !== lastLabelMonth) {
-                        labelText = months[d.getMonth()];
-                        if ((graphWindow === '1Y' || graphWindow === 'All') && d.getMonth() === 0) labelText = d.getFullYear();
-                        lastLabelMonth = d.getMonth();
-                    } else if (daysToShow < 60 && i % 10 === 0) {
-                        labelText = d.getDate();
-                    }
+            const latest = [...full].reverse().find(p => p.rolling !== null);
+            avgEl.innerText = latest ? Math.round(latest.rolling * 100) + '%' : '—';
+
+            const n = series.length;
+            const stepX = n > 1 ? w / (n - 1) : 0;
+            const xAt = (i) => (n > 1 ? i * stepX : w / 2);
+            const yAt = (v) => padTop + chartH - v * chartH;
+
+            // Baseline + 50% guide
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+            ctx.lineWidth = 1;
+            [0, 0.5, 1].forEach(v => {
+                const y = Math.round(yAt(v)) + 0.5;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            });
+
+            // Daily scores as bars behind the line — gives the chart texture
+            // instead of one lonely stroke in an empty box.
+            const barW = Math.max(1.5, Math.min(9, stepX * 0.55));
+            series.forEach((p, i) => {
+                if (p.score === null || p.score <= 0) return;
+                const x = xAt(i) - barW / 2;
+                const y = yAt(p.score);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+                ctx.fillRect(x, y, barW, padTop + chartH - y);
+            });
+
+            // Rolling average line, broken across gaps with no data
+            const grad = ctx.createLinearGradient(0, padTop, 0, padTop + chartH);
+            grad.addColorStop(0, 'rgba(10, 132, 255, 0.28)');
+            grad.addColorStop(1, 'rgba(10, 132, 255, 0)');
+
+            let run = [];
+            const flush = () => {
+                if (run.length < 1) { run = []; return; }
+
+                if (run.length > 1) {
+                    ctx.beginPath();
+                    run.forEach(([x, y], idx) => (idx ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+                    ctx.lineTo(run[run.length - 1][0], padTop + chartH);
+                    ctx.lineTo(run[0][0], padTop + chartH);
+                    ctx.closePath();
+                    ctx.fillStyle = grad;
+                    ctx.fill();
                 }
 
-                if (labelText !== "") ctx.fillText(labelText, x, h - 2);
-            }
-
-            if (points.length === 0) return;
-
-            // Draw vertical grid lines (very subtle)
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
-            ctx.lineWidth = 1;
-            const gridSkip = Math.ceil(daysToShow / 15);
-            for (let i = 0; i < daysToShow; i += gridSkip) {
-                const x = paddingX + (i * (chartW / xDivisor));
                 ctx.beginPath();
-                ctx.moveTo(x, paddingY);
-                ctx.lineTo(x, h - paddingY);
+                ctx.strokeStyle = '#0A84FF';
+                ctx.lineWidth = 2;
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                run.forEach(([x, y], idx) => (idx ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
                 ctx.stroke();
+                run = [];
+            };
+
+            series.forEach((p, i) => {
+                if (p.rolling === null) { flush(); return; }
+                run.push([xAt(i), yAt(p.rolling)]);
+            });
+            flush();
+
+            // Marker on the most recent point that has a value
+            for (let i = series.length - 1; i >= 0; i--) {
+                if (series[i].rolling === null) continue;
+                const x = xAt(i);
+                const y = yAt(series[i].rolling);
+                ctx.beginPath();
+                ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#0A84FF';
+                ctx.fill();
+                ctx.strokeStyle = '#08080A';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                break;
             }
 
-            // Draw the main progress line
-            ctx.beginPath();
-            ctx.strokeStyle = '#007AFF';
-            ctx.lineWidth = 2.5;
-            ctx.lineJoin = 'round';
-            ctx.lineCap = 'round';
-
-            points.forEach((p, idx) => {
-                const x = paddingX + (p.x * (chartW / xDivisor));
-                const y = paddingY + chartH - (p.y * chartH);
-                if (idx === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            });
-            ctx.stroke();
-
-            // Gradient Fill
-            const grad = ctx.createLinearGradient(0, paddingY, 0, h - paddingY);
-            grad.addColorStop(0, 'rgba(0, 122, 255, 0.15)');
-            grad.addColorStop(1, 'rgba(0, 122, 255, 0)');
-            ctx.lineTo(paddingX + (points[points.length - 1].x * (chartW / xDivisor)), h - paddingY);
-            ctx.lineTo(paddingX + (points[0].x * (chartW / xDivisor)), h - paddingY);
-            ctx.fillStyle = grad;
-            ctx.fill();
-
-            // Highlight the latest point that has data, not necessarily today
-            const lastP = points[points.length - 1];
-            const lastX = paddingX + (lastP.x * (chartW / xDivisor));
-            const lastY = paddingY + chartH - (lastP.y * chartH);
-            ctx.fillStyle = '#007AFF';
-            ctx.beginPath();
-            ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            // Date ticks: first, last, and a couple in between
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.font = '10px -apple-system, system-ui, sans-serif';
+            ctx.textBaseline = 'alphabetic';
+            const tickCount = Math.min(4, n);
+            for (let t = 0; t < tickCount; t++) {
+                const i = Math.round((t / Math.max(tickCount - 1, 1)) * (n - 1));
+                const d = series[i].date;
+                const label = n <= 14
+                    ? d.toLocaleDateString('en-US', { weekday: 'short' })
+                    : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                ctx.textAlign = t === 0 ? 'left' : (t === tickCount - 1 ? 'right' : 'center');
+                ctx.fillText(label, xAt(i), h - 2);
+            }
         }
 
         // ─── Scoring ──────────────────────────────────────────────────────────
@@ -1721,6 +1797,25 @@
             document.getElementById('labelWeight').classList.toggle('active', dayStats.weight);
         }
 
+        // Small inline-SVG helper. The UI used to lean on text glyphs (☰ ✕ 🔒),
+        // which render differently per platform and read as placeholder art.
+        function icon(path, size = 14) {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 24 24');
+            svg.setAttribute('width', size);
+            svg.setAttribute('height', size);
+            svg.setAttribute('fill', 'none');
+            svg.setAttribute('stroke', 'currentColor');
+            svg.setAttribute('stroke-width', '2');
+            svg.setAttribute('stroke-linecap', 'round');
+            svg.setAttribute('stroke-linejoin', 'round');
+
+            const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            p.setAttribute('d', path);
+            svg.appendChild(p);
+            return svg;
+        }
+
         function setSlotContent(slot, saved) {
             slot.innerHTML = '';
 
@@ -1730,14 +1825,16 @@
 
             const content = document.createElement('div');
             content.className = 'task-slot-content';
-            content.innerText = saved.activity;
+            const label = document.createElement('span');
+            label.innerText = saved.activity;
+            content.appendChild(label);
             slot.appendChild(content);
 
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'task-slot-delete';
             deleteBtn.type = 'button';
             deleteBtn.setAttribute('aria-label', `Delete ${saved.activity}`);
-            deleteBtn.innerText = '✕';
+            deleteBtn.appendChild(icon('M18 6L6 18M6 6l12 12', 11));
             slot.appendChild(deleteBtn);
         }
 
@@ -1875,11 +1972,9 @@
             heatmapEl.innerHTML = '';
             labelsEl.innerHTML = '';
 
-            // Column count lives in one place (HEATMAP_WEEKS) so the CSS grid and
-            // the render loop can't disagree about how many weeks are shown.
-            const columns = `repeat(${HEATMAP_WEEKS}, 1fr)`;
-            heatmapEl.style.gridTemplateColumns = columns;
-            labelsEl.style.gridTemplateColumns = columns;
+            // Both grids flow into fixed --heat-cell columns, so the month
+            // labels stay locked to the weeks they describe however many
+            // weeks HEATMAP_WEEKS renders.
 
             const allData = readStore(DATA_KEY);
             const allStats = readStore(STATS_KEY);
