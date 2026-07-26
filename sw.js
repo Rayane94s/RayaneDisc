@@ -1,5 +1,5 @@
 // Update this version number whenever you make changes to force cache refresh
-const CACHE_VERSION = '1.0.8';
+const CACHE_VERSION = '1.0.9';
 const CACHE_NAME = `rayane-tracker-v${CACHE_VERSION}`;
 const coreUrlsToCache = [
   './',
