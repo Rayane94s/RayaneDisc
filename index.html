@@ -130,6 +130,151 @@
             gap: var(--sp-3);
         }
 
+        /* ─── Tabs ────────────────────────────────────────────────────────── */
+        .tabbar {
+            display: flex;
+            gap: 2px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--r-sm);
+            padding: 2px;
+            align-self: flex-start;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-3);
+            padding: var(--sp-1) var(--sp-4);
+            border-radius: 6px;
+            font-size: var(--fs-sm);
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-2);
+        }
+
+        .tab-btn.active {
+            background: var(--surface-2);
+            color: var(--text);
+        }
+
+        /* Which view (and which header controls) the active tab shows. */
+        body[data-tab="analytics"] .track-only,
+        body[data-tab="analytics"] #viewTrack,
+        body[data-tab="track"] #viewAnalytics {
+            display: none;
+        }
+
+        /* ─── Analytics panels ────────────────────────────────────────────── */
+        .view {
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-4);
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            padding: var(--sp-4);
+        }
+
+        .panel-title {
+            font-size: var(--fs-xs);
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: var(--sp-3);
+        }
+
+        .stat-tiles {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: var(--sp-3);
+        }
+
+        .stat-tile {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            padding: var(--sp-3) var(--sp-4);
+        }
+
+        .stat-tile-label {
+            font-size: var(--fs-xs);
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: var(--sp-1);
+        }
+
+        .stat-tile-value {
+            font-size: var(--fs-lg);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-tile-sub {
+            font-size: var(--fs-xs);
+            color: var(--text-3);
+            margin-top: 2px;
+        }
+
+        /* ─── Activity breakdown ──────────────────────────────────────────── */
+        .breakdown {
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-3);
+        }
+
+        .breakdown-row {
+            display: grid;
+            grid-template-columns: minmax(70px, 22%) 1fr auto;
+            align-items: center;
+            gap: var(--sp-3);
+            font-size: var(--fs-sm);
+        }
+
+        .breakdown-name {
+            color: var(--text-2);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .breakdown-track {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: var(--r-full);
+            overflow: hidden;
+        }
+
+        .breakdown-fill {
+            height: 100%;
+            background: var(--fill-green);
+            border-radius: var(--r-full);
+        }
+
+        .breakdown-value {
+            color: var(--text-3);
+            font-variant-numeric: tabular-nums;
+            font-size: var(--fs-xs);
+            min-width: 46px;
+            text-align: right;
+        }
+
+        .empty-note {
+            color: var(--text-3);
+            font-size: var(--fs-sm);
+            text-align: center;
+            padding: var(--sp-4) 0;
+        }
+
         .header-top {
             display: flex;
             justify-content: space-between;
@@ -299,11 +444,6 @@
         }
 
         /* ─── Chart ───────────────────────────────────────────────────────── */
-        .graph-section {
-            border-top: 1px solid var(--border);
-            padding-top: var(--sp-3);
-        }
-
         .graph-label {
             display: flex;
             justify-content: space-between;
@@ -1033,46 +1173,65 @@
 
     <div class="header">
         <div class="header-inner">
-            <div class="header-top">
-                <div class="nav-controls">
-                    <button class="task-sidebar-toggle" id="taskSidebarToggle" onclick="toggleMobileSidebar()" aria-label="Activities">
-                        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
-                    </button>
-                    <button class="nav-btn" onclick="changeDate(-1)" aria-label="Previous day">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>
-                    </button>
-                    <div class="date-display" id="currentDate">Today</div>
-                    <button class="nav-btn" onclick="changeDate(1)" aria-label="Next day">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>
-                    </button>
-                    <div class="day-count-controls">
-                        <button class="day-count-btn" onclick="changeDayCount(-1)" aria-label="Fewer days">−</button>
-                        <span class="day-count-label" id="dayCountLabel">1 day</span>
-                        <button class="day-count-btn" onclick="changeDayCount(1)" aria-label="More days">+</button>
-                    </div>
-                </div>
-                <div class="score-badge" id="dailyScore">0%</div>
+            <div class="tabbar" role="tablist">
+                <button class="tab-btn active" data-tab="track" role="tab">Track</button>
+                <button class="tab-btn" data-tab="analytics" role="tab">Analytics</button>
             </div>
 
-        <div class="multipliers" id="multiplierContainer">
-            <div class="mult-item" id="itemMomentum">
-                <span>Momentum (1.0x)</span>
+            <div class="track-only">
+                <div class="header-top">
+                    <div class="nav-controls">
+                        <button class="task-sidebar-toggle" id="taskSidebarToggle" onclick="toggleMobileSidebar()" aria-label="Activities">
+                            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+                        </button>
+                        <button class="nav-btn" onclick="changeDate(-1)" aria-label="Previous day">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>
+                        </button>
+                        <div class="date-display" id="currentDate">Today</div>
+                        <button class="nav-btn" onclick="changeDate(1)" aria-label="Next day">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg>
+                        </button>
+                        <div class="day-count-controls">
+                            <button class="day-count-btn" onclick="changeDayCount(-1)" aria-label="Fewer days">−</button>
+                            <span class="day-count-label" id="dayCountLabel">1 day</span>
+                            <button class="day-count-btn" onclick="changeDayCount(1)" aria-label="More days">+</button>
+                        </div>
+                    </div>
+                    <div class="score-badge" id="dailyScore">0%</div>
+                </div>
+
+                <div class="multipliers" id="multiplierContainer">
+                    <div class="mult-item" id="itemMomentum">
+                        <span>Momentum (1.0x)</span>
+                    </div>
+                    <label class="mult-item" id="labelRings">
+                        <input type="checkbox" id="checkRings" onchange="updateStats()">
+                        <span>Apple Watch (1.2x)</span>
+                    </label>
+                    <label class="mult-item" id="labelWeight">
+                        <input type="checkbox" id="checkWeight" onchange="updateStats()">
+                        <span>Weight Target (1.3x)</span>
+                    </label>
+                </div>
+
+                <div class="controls" id="presetContainer"></div>
             </div>
-            <label class="mult-item" id="labelRings">
-                <input type="checkbox" id="checkRings" onchange="updateStats()">
-                <span>Apple Watch (1.2x)</span>
-            </label>
-            <label class="mult-item" id="labelWeight">
-                <input type="checkbox" id="checkWeight" onchange="updateStats()">
-                <span>Weight Target (1.3x)</span>
-            </label>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="view" id="viewTrack">
+            <div class="grid-container" id="grid">
+                <div id="timeIndicator"></div>
+            </div>
         </div>
 
-            <div class="controls" id="presetContainer"></div>
+        <div class="view" id="viewAnalytics">
+            <div class="stat-tiles" id="statTiles"></div>
 
-            <div class="graph-section">
+            <div class="panel">
                 <div class="graph-label">
-                    <span class="graph-title">7-day average</span>
+                    <span class="graph-title">Trend</span>
                     <div class="graph-window-selectors" id="graphWindowSelectors">
                         <button class="window-btn" data-window="7D">7D</button>
                         <button class="window-btn active" data-window="30D">30D</button>
@@ -1084,45 +1243,47 @@
                 </div>
                 <canvas id="progressGraph"></canvas>
             </div>
-        </div>
-    </div>
 
-    <div class="main-container">
-        <div class="heatmap-container">
-            <div class="heatmap-scroll">
-                <div class="heatmap-inner">
-                    <div class="heatmap-labels" id="heatmapMonthLabels"></div>
-                    <div class="heatmap-wrapper">
-                        <div class="heatmap-days">
-                            <span>Mon</span>
-                            <span></span>
-                            <span>Wed</span>
-                            <span></span>
-                            <span>Fri</span>
-                            <span></span>
-                            <span></span>
+            <div class="panel">
+                <div class="panel-title">Last 16 weeks</div>
+                <div class="heatmap-container">
+                    <div class="heatmap-scroll">
+                        <div class="heatmap-inner">
+                            <div class="heatmap-labels" id="heatmapMonthLabels"></div>
+                            <div class="heatmap-wrapper">
+                                <div class="heatmap-days">
+                                    <span>Mon</span>
+                                    <span></span>
+                                    <span>Wed</span>
+                                    <span></span>
+                                    <span>Fri</span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                                <div class="heatmap-grid" id="heatmapGrid"></div>
+                            </div>
                         </div>
-                        <div class="heatmap-grid" id="heatmapGrid"></div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="grid-container" id="grid">
-            <div id="timeIndicator"></div>
+            <div class="panel">
+                <div class="panel-title">Where the hours go</div>
+                <div class="breakdown" id="activityBreakdown"></div>
+            </div>
         </div>
     </div>
 
     <div class="footer">
-        <div class="footer-actions">
+        <div class="footer-actions track-only">
             <button class="reset-btn" onclick="clearDay()">Clear this day</button>
             <button class="reset-btn danger" onclick="clearAllData()">Reset everything</button>
         </div>
-        <div class="app-version">v<span id="appVersion">1.0.12</span></div>
+        <div class="app-version">v<span id="appVersion">1.0.13</span></div>
     </div>
 
     <script>
-        const APP_VERSION = '1.0.12';
+        const APP_VERSION = '1.0.13';
         const DEFAULT_ACTIVITIES = ["Sleep", "Code", "Work", "Read", "Workout", "Stretch", "Grooming", "Pray", "Netflix"];
         const START_HOUR = 5;
         const TOTAL_HOURS = 24;
@@ -1138,6 +1299,9 @@
         const DATA_KEY = 'rayane_tracker_v2';
         const STATS_KEY = 'rayane_tracker_stats';
         const TASKS_KEY = 'rayane_tasks';
+        const TAB_KEY = 'rayane_tab';
+
+        let activeTab = localStorage.getItem(TAB_KEY) === 'analytics' ? 'analytics' : 'track';
 
         let selectedActivity = "Code";
         let dayData = {};
@@ -1404,10 +1568,37 @@
             renderTaskSidebar();
             renderPresets();
             initGraphWindows();
+            initTabs();
             bindSwipeToDelete();
             updateDisplay();
-            renderHeatmap();
+            setTab(activeTab); // draws the analytics view if that's the open tab
             setInterval(updateTimeIndicator, 60000);
+        }
+
+        function initTabs() {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.onclick = () => setTab(btn.dataset.tab);
+            });
+        }
+
+        function setTab(tab) {
+            activeTab = tab;
+            localStorage.setItem(TAB_KEY, tab);
+            document.body.dataset.tab = tab;
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                const on = b.dataset.tab === tab;
+                b.classList.toggle('active', on);
+                b.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+
+            if (tab === 'analytics') {
+                // The canvas has no width while its tab is hidden, so the chart
+                // has to be drawn after the view becomes visible, not before.
+                renderAnalytics();
+            } else {
+                closeOpenSwipe();
+                updateTimeIndicator();
+            }
         }
 
         function initGraphWindows() {
@@ -1508,7 +1699,7 @@
             updateMultiplierStyles();
             renderGrid();
             recalculateScore(allData, allStats);
-            renderProgressGraph(allData, allStats);
+            if (activeTab === 'analytics') renderAnalytics();
             updateTimeIndicator();
         }
 
@@ -1886,8 +2077,10 @@
             }
 
             recalculateScore(allData, allStats);
-            renderProgressGraph(allData, allStats);
-            renderHeatmap();
+            // Analytics is a whole hidden view while tracking; rebuilding its
+            // 112 heatmap cells and redrawing the chart on every tap would be
+            // wasted work. setTab redraws it on the way in instead.
+            if (activeTab === 'analytics') renderAnalytics();
         }
 
         function deleteSlot(dayKey, index) {
@@ -2160,6 +2353,154 @@
             refreshViewsAfterDataChange(allData);
         }
 
+        // ─── Analytics ───────────────────────────────────────────────────────
+        // Mean of the days with activity in the N days ending today.
+        function averageOverDays(allData, allStats, days) {
+            let total = 0, counted = 0;
+            const d = new Date();
+            d.setHours(0, 0, 0, 0);
+
+            for (let i = 0; i < days; i++) {
+                const k = getDateKey(d);
+                if (hasDayActivity(k, allData, allStats)) {
+                    total += getDayScore(k, allData, allStats);
+                    counted++;
+                }
+                d.setDate(d.getDate() - 1);
+            }
+
+            return counted ? { avg: total / counted, counted } : null;
+        }
+
+        // Consecutive days with activity, counting back from today. Today not
+        // being logged yet doesn't break a streak — it just hasn't happened.
+        function currentStreak(allData, allStats) {
+            const d = new Date();
+            d.setHours(0, 0, 0, 0);
+            if (!hasDayActivity(getDateKey(d), allData, allStats)) d.setDate(d.getDate() - 1);
+
+            let streak = 0;
+            while (hasDayActivity(getDateKey(d), allData, allStats)) {
+                streak++;
+                d.setDate(d.getDate() - 1);
+            }
+            return streak;
+        }
+
+        function statTile(label, value, sub) {
+            const tile = document.createElement('div');
+            tile.className = 'stat-tile';
+
+            const l = document.createElement('div');
+            l.className = 'stat-tile-label';
+            l.innerText = label;
+            tile.appendChild(l);
+
+            const v = document.createElement('div');
+            v.className = 'stat-tile-value';
+            v.innerText = value;
+            tile.appendChild(v);
+
+            if (sub) {
+                const s = document.createElement('div');
+                s.className = 'stat-tile-sub';
+                s.innerText = sub;
+                tile.appendChild(s);
+            }
+            return tile;
+        }
+
+        function renderStatTiles(allData, allStats) {
+            const host = document.getElementById('statTiles');
+            if (!host) return;
+            host.innerHTML = '';
+
+            const week = averageOverDays(allData, allStats, 7);
+            const month = averageOverDays(allData, allStats, 30);
+            const streak = currentStreak(allData, allStats);
+
+            let doneHours = 0, activeDays = 0;
+            Object.keys(allData).forEach(k => {
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(k)) return;
+                if (!hasDayActivity(k, allData, allStats)) return;
+                activeDays++;
+                doneHours += countDone(k, allData);
+            });
+
+            const pct = (r) => r ? Math.round(r.avg * 100) + '%' : '—';
+            host.appendChild(statTile('7-day average', pct(week),
+                week ? `${week.counted} day${week.counted === 1 ? '' : 's'} logged` : 'no data yet'));
+            host.appendChild(statTile('30-day average', pct(month),
+                month ? `${month.counted} day${month.counted === 1 ? '' : 's'} logged` : 'no data yet'));
+            host.appendChild(statTile('Current streak', `${streak}`,
+                streak === 1 ? 'day' : 'days'));
+            host.appendChild(statTile('Hours completed', `${doneHours}`,
+                `across ${activeDays} day${activeDays === 1 ? '' : 's'}`));
+        }
+
+        function renderBreakdown(allData, allStats) {
+            const host = document.getElementById('activityBreakdown');
+            if (!host) return;
+            host.innerHTML = '';
+
+            // Count completed hours per activity name. Uses the names stored on
+            // the slots, so activities deleted from the sidebar still show up —
+            // those hours did happen.
+            const totals = {};
+            Object.keys(allData).forEach(k => {
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(k)) return;
+                Object.values(allData[k]).forEach(s => {
+                    if (!s || s.status !== 'done' || !s.activity) return;
+                    totals[s.activity] = (totals[s.activity] || 0) + 1;
+                });
+            });
+
+            const rows = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 8);
+            if (!rows.length) {
+                const note = document.createElement('div');
+                note.className = 'empty-note';
+                note.innerText = 'Mark some hours done to see this.';
+                host.appendChild(note);
+                return;
+            }
+
+            const max = rows[0][1];
+            rows.forEach(([name, hours]) => {
+                const row = document.createElement('div');
+                row.className = 'breakdown-row';
+
+                const n = document.createElement('div');
+                n.className = 'breakdown-name';
+                n.innerText = name;
+                n.title = name;
+                row.appendChild(n);
+
+                const track = document.createElement('div');
+                track.className = 'breakdown-track';
+                const fill = document.createElement('div');
+                fill.className = 'breakdown-fill';
+                fill.style.width = `${Math.round((hours / max) * 100)}%`;
+                track.appendChild(fill);
+                row.appendChild(track);
+
+                const v = document.createElement('div');
+                v.className = 'breakdown-value';
+                v.innerText = `${hours}h`;
+                row.appendChild(v);
+
+                host.appendChild(row);
+            });
+        }
+
+        function renderAnalytics() {
+            const allData = readStore(DATA_KEY);
+            const allStats = readStore(STATS_KEY);
+            renderStatTiles(allData, allStats);
+            renderProgressGraph(allData, allStats);
+            renderHeatmap();
+            renderBreakdown(allData, allStats);
+        }
+
         function renderHeatmap() {
             const heatmapEl = document.getElementById('heatmapGrid');
             const labelsEl = document.getElementById('heatmapMonthLabels');
@@ -2286,9 +2627,9 @@
             writeStore(DATA_KEY, allData);
             writeStore(STATS_KEY, allStats);
 
-            // Refresh UI without reloading page (preserves currentViewDate)
+            // Refresh UI without reloading page (preserves currentViewDate).
+            // updateDisplay redraws analytics too when that tab is open.
             updateDisplay();
-            renderHeatmap();
         }
 
         function clearAllData() {
