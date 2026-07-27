@@ -529,21 +529,52 @@
             height: var(--row-h);
         }
 
+        /* Outer slot: fixed box, clips the sliding face and the delete layer
+           beneath it. touch-action: pan-y leaves vertical scrolling to the
+           browser and only hands horizontal drags to our own gesture code. */
         .task-slot {
-            padding: 0 var(--sp-3);
             border-bottom: 1px solid var(--border);
             border-left: 1px solid var(--border);
+            height: var(--row-h);
+            position: relative;
+            overflow: hidden;
+            touch-action: pan-y;
+        }
+
+        /* Sits behind the face at all times; only becomes visible — and
+           tappable, since a translated element's hit area follows its paint
+           position — once the face has slid away from it. */
+        .task-slot-delete-zone {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: var(--sp-1);
+            padding-right: var(--sp-3);
+            background: var(--red);
+            color: #fff;
+            font-size: var(--fs-xs);
+            font-weight: 600;
             cursor: pointer;
+        }
+
+        /* The visible, draggable layer: carries the status colour and content.
+           Swiped by JS via inline transform; this transition only governs the
+           snap-open/snap-closed/delete animations, not the live drag. */
+        .task-slot-face {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            padding: 0 var(--sp-3);
             display: flex;
             align-items: center;
             font-size: var(--fs-sm);
-            height: var(--row-h);
-            transition: background 0.15s ease;
-            position: relative;
-            overflow: hidden;
+            transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1), background 0.15s ease;
         }
 
-        .task-slot:hover {
+        .task-slot:hover .task-slot-face {
             background: rgba(255, 255, 255, 0.03);
         }
 
@@ -552,7 +583,6 @@
             align-items: center;
             gap: var(--sp-2);
             min-width: 0;
-            padding-right: var(--sp-5);
         }
 
         .task-slot-content span {
@@ -561,21 +591,41 @@
             white-space: nowrap;
         }
 
-        /* Solid fills: the whole cell takes the status colour. */
-        .status-neutral {
-            background: rgba(255, 255, 255, 0.05);
+        /* Solid fills: the whole face takes the status colour. Neutral is
+           opaque, not a translucent wash -- a "logged, no status yet" slot
+           always has a delete zone sitting behind it, and any alpha here
+           would let that red bleed straight through. */
+        .task-slot-face.status-neutral {
+            background: var(--surface-2);
             box-shadow: inset 3px 0 0 var(--text-3);
             color: var(--text-2);
         }
 
-        .status-completed {
+        .task-slot-face.status-completed {
             background: var(--fill-green);
             color: #00351C;
         }
 
-        .status-failed {
+        .task-slot-face.status-failed {
             background: var(--fill-red);
             color: #fff;
+        }
+
+        /* Without these, the plain hover rule above (higher specificity than
+           a single status class) would win and replace each fill with its
+           translucent wash on hover -- including on neutral, which would
+           expose the delete zone behind it again. */
+        .task-slot:hover .task-slot-face.status-neutral {
+            background: var(--surface-2);
+        }
+
+        .task-slot:hover .task-slot-face.status-completed,
+        .task-slot:hover .task-slot-face.status-failed {
+            background: var(--fill-green);
+        }
+
+        .task-slot:hover .task-slot-face.status-failed {
+            background: var(--fill-red);
         }
 
         .status-completed .task-slot-content span,
@@ -583,76 +633,12 @@
             font-weight: 600;
         }
 
-        /* Neither fill needs a hover wash on top of it */
-        .task-slot.status-completed:hover,
-        .task-slot.status-failed:hover {
-            background: var(--fill-green);
-        }
-
-        .task-slot.status-failed:hover {
-            background: var(--fill-red);
-        }
-
-        /* Applied only in multi-day view (see renderGrid). Tints today's *empty*
-           cells only — this selector outranks the status rules, so unscoped it
-           would paint over the green and red fills. */
-        .task-slot.today-column:not(.status-neutral):not(.status-completed):not(.status-failed) {
+        /* Applied only in multi-day view (see renderGrid). The face fully
+           overlays this whenever a slot is filled, so no exclusion needed for
+           status here — unlike the old single-element version, colour and
+           highlight now live in a paint order the fill can't be outranked in. */
+        .task-slot.today-column {
             background: rgba(255, 255, 255, 0.035);
-        }
-
-        .task-slot-delete {
-            position: absolute;
-            top: 50%;
-            right: var(--sp-2);
-            transform: translateY(-50%);
-            width: 20px;
-            height: 20px;
-            border: none;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.1);
-            color: var(--text-2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            padding: 0;
-            transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
-        }
-
-        .task-slot-delete:hover {
-            background: var(--red);
-            color: #fff;
-        }
-
-        /* A pale chip vanishes on a saturated fill — scrim it instead. */
-        .status-completed .task-slot-delete,
-        .status-failed .task-slot-delete {
-            background: rgba(0, 0, 0, 0.22);
-            color: inherit;
-        }
-
-        .status-completed .task-slot-delete:hover,
-        .status-failed .task-slot-delete:hover {
-            background: rgba(0, 0, 0, 0.45);
-            color: #fff;
-        }
-
-        /* 24 permanently visible ✕ circles was a lot of noise. Reveal on hover
-           where there's a pointer; keep them faint but reachable on touch. */
-        @media (hover: hover) {
-            .task-slot-delete {
-                opacity: 0;
-            }
-
-            .task-slot:hover .task-slot-delete {
-                opacity: 1;
-            }
-        }
-
-        @media (hover: none) {
-            .task-slot-delete {
-                opacity: 0.35;
-            }
         }
 
         @keyframes pop {
@@ -1119,11 +1105,11 @@
             <button class="reset-btn" onclick="clearDay()">Clear this day</button>
             <button class="reset-btn danger" onclick="clearAllData()">Reset everything</button>
         </div>
-        <div class="app-version">v<span id="appVersion">1.0.10</span></div>
+        <div class="app-version">v<span id="appVersion">1.0.11</span></div>
     </div>
 
     <script>
-        const APP_VERSION = '1.0.10';
+        const APP_VERSION = '1.0.11';
         const DEFAULT_ACTIVITIES = ["Sleep", "Code", "Work", "Read", "Workout", "Stretch", "Grooming", "Pray", "Netflix"];
         const START_HOUR = 5;
         const TOTAL_HOURS = 24;
@@ -1405,6 +1391,7 @@
             renderTaskSidebar();
             renderPresets();
             initGraphWindows();
+            bindSwipeToDelete();
             updateDisplay();
             renderHeatmap();
             setInterval(updateTimeIndicator, 60000);
@@ -1846,8 +1833,19 @@
             return svg;
         }
 
-        function setSlotContent(slot, saved) {
-            slot.innerHTML = '';
+        // Operates on a slot's face (the sliding layer), not the outer slot.
+        function createDeleteZone() {
+            const zone = document.createElement('div');
+            zone.className = 'task-slot-delete-zone';
+            zone.appendChild(icon('M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6', 15));
+            const label = document.createElement('span');
+            label.innerText = 'Delete';
+            zone.appendChild(label);
+            return zone;
+        }
+
+        function setSlotContent(face, saved) {
+            face.innerHTML = '';
 
             if (!saved) {
                 return;
@@ -1858,14 +1856,7 @@
             const label = document.createElement('span');
             label.innerText = saved.activity;
             content.appendChild(label);
-            slot.appendChild(content);
-
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'task-slot-delete';
-            deleteBtn.type = 'button';
-            deleteBtn.setAttribute('aria-label', `Delete ${saved.activity}`);
-            deleteBtn.appendChild(icon('M18 6L6 18M6 6l12 12', 11));
-            slot.appendChild(deleteBtn);
+            face.appendChild(content);
         }
 
         function refreshViewsAfterDataChange(allData) {
@@ -1899,8 +1890,127 @@
             refreshViewsAfterDataChange(allData);
         }
 
+        // ─── Swipe-to-delete ─────────────────────────────────────────────────
+        // Clearing a slot used to mean tapping through done -> failed -> empty
+        // to undo one entry. A left swipe now deletes directly from any state,
+        // matching the Mail/Reminders gesture. Bound once via delegation on
+        // gridEl (which survives renderGrid's innerHTML wipes) rather than
+        // per-slot, so it never needs rebinding after a re-render.
+        const SWIPE_REVEAL = 76;       // px the face sits at once snapped open
+        const SWIPE_SNAP_AT = 34;      // drag past this -> snap open on release
+        const SWIPE_AUTO_DELETE_AT = 120; // drag past this -> delete on release
+
+        let swipeState = null;   // in-progress drag, or null
+        let openSwipeSlot = null; // the one slot currently snapped open, or null
+
+        function closeOpenSwipe() {
+            if (!openSwipeSlot) return;
+            const face = openSwipeSlot.querySelector('.task-slot-face');
+            if (face) face.style.transform = '';
+            openSwipeSlot.dataset.open = '';
+            openSwipeSlot = null;
+        }
+
+        function animateSlotDeletion(slot) {
+            const face = slot.querySelector('.task-slot-face');
+            face.style.transform = 'translateX(-100%)';
+            slot.style.transition = 'opacity 0.16s ease';
+            slot.style.opacity = '0';
+            if (openSwipeSlot === slot) openSwipeSlot = null;
+            setTimeout(() => deleteSlot(slot.dataset.dayKey, Number(slot.dataset.index)), 160);
+        }
+
+        function bindSwipeToDelete() {
+            gridEl.addEventListener('pointerdown', (e) => {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                const slot = e.target.closest('.task-slot');
+                if (!slot) return;
+
+                const face = slot.querySelector('.task-slot-face');
+                const hasData = face.classList.contains('status-neutral') ||
+                    face.classList.contains('status-completed') ||
+                    face.classList.contains('status-failed');
+
+                const wasOpen = openSwipeSlot === slot;
+                if (openSwipeSlot && openSwipeSlot !== slot) closeOpenSwipe();
+
+                swipeState = {
+                    slot, face, pointerId: e.pointerId,
+                    startX: e.clientX, startY: e.clientY,
+                    dx: 0, mode: 'pending', hasData, wasOpen,
+                };
+            }, { passive: true });
+
+            gridEl.addEventListener('pointermove', (e) => {
+                if (!swipeState || e.pointerId !== swipeState.pointerId) return;
+                const dx = e.clientX - swipeState.startX;
+                const dy = e.clientY - swipeState.startY;
+
+                if (swipeState.mode === 'pending') {
+                    if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+                    // Vertical intent, or nothing to delete: hand off to the
+                    // browser's own scrolling and stop tracking this pointer.
+                    if (Math.abs(dy) > Math.abs(dx) || !swipeState.hasData) {
+                        swipeState.mode = 'scroll';
+                        return;
+                    }
+                    swipeState.mode = 'swipe';
+                    swipeState.face.style.transition = 'none';
+                }
+
+                if (swipeState.mode !== 'swipe') return;
+                e.preventDefault();
+                const clamped = Math.min(0, Math.max(dx, -(SWIPE_AUTO_DELETE_AT + 20)));
+                swipeState.dx = clamped;
+                swipeState.face.style.transform = `translateX(${clamped}px)`;
+            }, { passive: false });
+
+            const endSwipe = (e) => {
+                if (!swipeState || e.pointerId !== swipeState.pointerId) return;
+                const { slot, face, mode, dx, wasOpen } = swipeState;
+                swipeState = null;
+
+                if (mode === 'pending') {
+                    // A translated element's hit area follows its paint
+                    // position, so this only matches once the face has
+                    // actually slid clear of the delete zone underneath it —
+                    // this check has to happen before the "already open"
+                    // branch below, or that branch closes the row first and
+                    // the tap never reaches the delete zone at all.
+                    const onDeleteZone = !!e.target.closest('.task-slot-delete-zone');
+                    if (wasOpen && onDeleteZone) { animateSlotDeletion(slot); return; }
+                    // Tapping an open row anywhere else just closes it, rather
+                    // than also cycling its status underneath.
+                    if (wasOpen) { closeOpenSwipe(); return; }
+                    handleSlotClickMulti(slot, Number(slot.dataset.index), slot.dataset.dayKey);
+                    return;
+                }
+                if (mode !== 'swipe') return; // was a scroll; nothing to finish
+
+                face.style.transition = '';
+                if (dx <= -SWIPE_AUTO_DELETE_AT) {
+                    animateSlotDeletion(slot);
+                } else if (dx <= -SWIPE_SNAP_AT) {
+                    face.style.transform = `translateX(-${SWIPE_REVEAL}px)`;
+                    slot.dataset.open = '1';
+                    openSwipeSlot = slot;
+                } else {
+                    face.style.transform = '';
+                    slot.dataset.open = '';
+                    if (openSwipeSlot === slot) openSwipeSlot = null;
+                }
+            };
+
+            gridEl.addEventListener('pointerup', endSwipe);
+            gridEl.addEventListener('pointercancel', endSwipe);
+        }
+
         function renderGrid() {
             gridEl.innerHTML = '';
+            // Old nodes are gone; don't let stale references from an in-flight
+            // swipe point at detached elements.
+            openSwipeSlot = null;
+            swipeState = null;
 
             // Set dynamic columns for multi-day
             gridEl.style.setProperty('--day-count', dayCount);
@@ -1936,6 +2046,8 @@
 
                     const slot = document.createElement('div');
                     slot.className = 'task-slot';
+                    slot.dataset.dayKey = dayKey;
+                    slot.dataset.index = i;
 
                     // Only worth marking today when there are other days to tell
                     // it apart from. In single-day view every cell is today, so
@@ -1946,49 +2058,71 @@
                     }
 
                     const saved = dayDataForSlot[i];
-                    if (saved) {
-                        setSlotContent(slot, saved);
-                        if (saved.status === 'neutral') slot.classList.add('status-neutral');
-                        if (saved.status === 'done') slot.classList.add('status-completed');
-                        if (saved.status === 'fail') slot.classList.add('status-failed');
 
-                        const deleteBtn = slot.querySelector('.task-slot-delete');
-                        deleteBtn.onclick = (event) => {
-                            event.stopPropagation();
-                            deleteSlot(dayKey, i);
-                        };
+                    // Only slots with data get a delete zone: it sits behind
+                    // the face, which fully hides it as long as the face is
+                    // opaque -- true for every status colour, but not for an
+                    // empty face (no background at all), which would let the
+                    // red paint straight through. Gating creation on `saved`
+                    // means an empty slot never has one to bleed through.
+                    if (saved) {
+                        slot.appendChild(createDeleteZone());
                     }
-                    slot.onclick = () => handleSlotClickMulti(slot, i, dayKey);
+
+                    const face = document.createElement('div');
+                    face.className = 'task-slot-face';
+                    slot.appendChild(face);
+
+                    if (saved) {
+                        setSlotContent(face, saved);
+                        if (saved.status === 'neutral') face.classList.add('status-neutral');
+                        if (saved.status === 'done') face.classList.add('status-completed');
+                        if (saved.status === 'fail') face.classList.add('status-failed');
+                    }
+
                     gridEl.appendChild(slot);
                 }
             }
         }
 
-        function handleSlotClickMulti(el, index, dayKey) {
+        function handleSlotClickMulti(slot, index, dayKey) {
+            const face = slot.querySelector('.task-slot-face');
             let status = 'empty';
-            if (el.classList.contains('status-neutral')) status = 'neutral';
-            else if (el.classList.contains('status-completed')) status = 'done';
-            else if (el.classList.contains('status-failed')) status = 'fail';
+            if (face.classList.contains('status-neutral')) status = 'neutral';
+            else if (face.classList.contains('status-completed')) status = 'done';
+            else if (face.classList.contains('status-failed')) status = 'fail';
 
-            el.classList.remove('status-neutral', 'status-completed', 'status-failed', 'pop-anim');
-            void el.offsetWidth;
-            el.classList.add('pop-anim');
+            face.classList.remove('status-neutral', 'status-completed', 'status-failed');
+            slot.classList.remove('pop-anim');
+            void slot.offsetWidth;
+            slot.classList.add('pop-anim');
 
             const allData = readStore(DATA_KEY);
             if (!allData[dayKey]) allData[dayKey] = {};
 
             if (status === 'empty') {
-                setSlotContent(el, { activity: selectedActivity, status: 'neutral' });
-                el.classList.add('status-neutral');
+                // Going from nothing to a fresh entry: this slot has never
+                // had a delete zone (renderGrid only creates one for slots
+                // that start out filled), so add it now rather than leaving
+                // the new entry unswipeable until the next full re-render.
+                if (!slot.querySelector('.task-slot-delete-zone')) {
+                    slot.insertBefore(createDeleteZone(), face);
+                }
+                setSlotContent(face, { activity: selectedActivity, status: 'neutral' });
+                face.classList.add('status-neutral');
                 allData[dayKey][index] = { activity: selectedActivity, status: 'neutral' };
             } else if (status === 'neutral') {
-                el.classList.add('status-completed');
+                face.classList.add('status-completed');
                 allData[dayKey][index] = { activity: allData[dayKey][index].activity, status: 'done' };
             } else if (status === 'done') {
-                el.classList.add('status-failed');
+                face.classList.add('status-failed');
                 allData[dayKey][index] = { activity: allData[dayKey][index].activity, status: 'fail' };
             } else {
-                setSlotContent(el, null);
+                setSlotContent(face, null);
+                // Back to genuinely empty: drop the delete zone too, so an
+                // empty slot never carries one behind its (transparent) face.
+                const zone = slot.querySelector('.task-slot-delete-zone');
+                if (zone) zone.remove();
                 delete allData[dayKey][index];
             }
 
